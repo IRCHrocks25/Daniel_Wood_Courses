@@ -1,0 +1,876 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Assisted Entrepreneur Hub - Build, Sell & Scale with AI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'navy-dark': '#0a0e27',
+                        'navy-mid': '#1a1f3a',
+                        'cyan-electric': '#00f0ff',
+                        'purple-accent': '#a855f7',
+                        'emerald-glow': '#10b981',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Premium Background Layers - Calm & Editorial */
+        .premium-bg {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #000000 100%);
+            position: relative;
+        }
+        
+        .premium-bg::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* Section-specific backgrounds */
+        .hero-bg {
+            background: 
+                radial-gradient(circle at 30% 40%, rgba(0, 240, 255, 0.06) 0%, transparent 60%),
+                linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+        }
+        
+        .highlights-bg {
+            background: linear-gradient(180deg, #0a0e27 0%, #1a1f3a 100%);
+        }
+        
+        .join-bg {
+            background: 
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 70%),
+                linear-gradient(135deg, #0a0e27 0%, #000000 100%);
+        }
+        
+        /* Glass Morphism */
+        .glass-card {
+            background: rgba(10, 14, 39, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+        }
+        
+        /* Premium Glow Effects */
+        .glow-cyan {
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.2), 0 0 80px rgba(0, 240, 255, 0.1);
+        }
+        
+        .glow-violet {
+            box-shadow: 0 0 40px rgba(168, 85, 247, 0.2), 0 0 80px rgba(168, 85, 247, 0.1);
+        }
+        
+        .glow-emerald {
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.2), 0 0 80px rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Floating Animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .float-animation {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        /* Scroll-triggered Nav */
+        .nav-scrolled {
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(20px);
+        }
+        
+        /* Texture Divider */
+        .texture-divider {
+            background: 
+                linear-gradient(90deg, transparent 0%, rgba(0, 240, 255, 0.1) 50%, transparent 100%),
+                url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            height: 2px;
+            opacity: 0.3;
+        }
+        
+        /* Material Textures */
+        .texture-marble {
+            background-image: 
+                url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='marble'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.01 0.02' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.02 0'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23marble)' opacity='0.3'/%3E%3C/svg%3E");
+            background-size: 200px 200px;
+        }
+        
+        .texture-linen {
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px);
+        }
+        
+        /* Content Layer */
+        .content-layer {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Cursor underline animation */
+        .cursor-underline {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .cursor-underline::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(to right, #00f0ff, #a855f7);
+            transition: width 0.3s ease;
+        }
+        
+        .cursor-underline:hover::after {
+            width: 100%;
+        }
+        
+        /* Hand-drawn divider */
+        .hand-drawn-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.2), transparent);
+            position: relative;
+        }
+        
+        .hand-drawn-divider::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 20%;
+            width: 60%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
+            border-radius: 50%;
+        }
+        
+        /* Hover reveal on cards */
+        .hover-reveal {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hover-reveal-content {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .hover-reveal:hover .hover-reveal-content {
+            transform: translateY(-4px);
+        }
+        
+        .hover-reveal-hidden {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            padding-top: 1rem;
+        }
+        
+        .hover-reveal:hover .hover-reveal-hidden {
+            transform: translateY(0);
+        }
+        
+        /* Timeline connector */
+        .timeline-connector {
+            position: relative;
+        }
+        
+        .timeline-connector::after {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0, 240, 255, 0.3), rgba(168, 85, 247, 0.3));
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .timeline-connector::after {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="premium-bg min-h-screen text-white">
+    <!-- 1. Top Navigation (Sticky) -->
+    <nav id="main-nav" class="fixed top-0 left-0 right-0 z-50 bg-[#0a0e27]/60 backdrop-blur-md border-b border-cyan-electric/20 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 lg:px-12 py-4">
+            <div class="flex items-center justify-between">
+                <!-- Left: Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center">
+                        <i class="fas fa-bolt text-white"></i>
+                    </div>
+                    <div class="text-lg font-bold">AI-Assisted Entrepreneur Hub</div>
+                </div>
+                
+                <!-- Center: Menu -->
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#highlights" class="text-sm font-medium hover:text-cyan-electric transition-colors">Highlights</a>
+                    <a href="#about" class="text-sm font-medium hover:text-cyan-electric transition-colors">About</a>
+                    <a href="#results" class="text-sm font-medium hover:text-cyan-electric transition-colors">Results</a>
+                    <a href="#join" class="text-sm font-medium hover:text-cyan-electric transition-colors">Join</a>
+                </div>
+                
+                <!-- Right: Login Button -->
+                <a href="{% url 'login' %}" class="px-6 py-2.5 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold rounded-lg transition-all shadow-lg shadow-cyan-electric/20">
+                    Login
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="content-layer">
+        <!-- 2. Hero Section (Premium Editorial) -->
+        <section class="relative pt-32 pb-28 lg:pt-40 lg:pb-36 overflow-hidden hero-bg">
+            <!-- Dark overlay for text readability -->
+            <div class="absolute inset-0 bg-gradient-to-b from-[#0a0e27]/80 via-[#0a0e27]/60 to-transparent pointer-events-none z-0"></div>
+            <!-- Faint network lines (whisper, not scream) -->
+            <div class="absolute inset-0 opacity-[0.02] pointer-events-none z-0" style="background-image: linear-gradient(90deg, rgba(0,240,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,240,255,0.1) 1px, transparent 1px); background-size: 50px 50px;"></div>
+            
+            <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+                <div class="grid lg:grid-cols-2 gap-20 items-center">
+                    <!-- Left Column (Copy) -->
+                    <div class="space-y-8">
+                        <div class="text-xs tracking-wider text-cyan-electric/60 font-semibold">Welcome to</div>
+                        <h1 class="text-5xl lg:text-7xl font-black leading-tight">
+                            AI-Assisted<br>
+                            <span class="bg-gradient-to-r from-cyan-electric to-purple-accent bg-clip-text text-transparent">Entrepreneur Membership Hub</span>
+                        </h1>
+                        <p class="text-xl text-gray-200 leading-relaxed max-w-xl">
+                            Build, sell, and scale with AI—faster.
+                        </p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <a href="#join" class="px-8 py-4 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all shadow-xl shadow-cyan-electric/30 text-center">
+                                Join the Membership
+                            </a>
+                            <a href="{% url 'login' %}" class="px-8 py-4 glass-card border border-cyan-electric/20 hover:border-cyan-electric/40 text-white font-bold rounded-xl transition-all text-center">
+                                Login
+                            </a>
+                        </div>
+                        <!-- Credibility Strip -->
+                        <div class="flex items-center gap-4 text-sm text-gray-400 pt-2">
+                            <span>40+ companies</span>
+                            <span class="text-gray-600">•</span>
+                            <span>$500M sales</span>
+                            <span class="text-gray-600">•</span>
+                            <span>32 countries</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Hero Visual (Clean Stage Shot) -->
+                    <div class="relative">
+                        <!-- Soft frame with one glow accent -->
+                        <div class="relative rounded-2xl overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-br from-cyan-electric/10 via-transparent to-purple-accent/10 rounded-2xl blur-2xl -z-10"></div>
+                            <!-- Hero Image: Kane & Alessia on stage -->
+                            <div class="aspect-[4/5] bg-gradient-to-br from-[#0a0e27] via-[#1a1f3a] to-[#000000] flex items-center justify-center border border-cyan-electric/10 rounded-2xl relative overflow-hidden">
+                                <!-- Dark overlay for readability -->
+                                <div class="absolute inset-0 bg-gradient-to-t from-[#0a0e27]/60 to-transparent"></div>
+                                <div class="text-center relative z-10">
+                                    <i class="fas fa-user-friends text-6xl text-cyan-electric/20 mb-4"></i>
+                                    <p class="text-gray-500 text-sm">Kane & Alessia on Stage</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Hand-drawn Divider -->
+        <div class="hand-drawn-divider my-20"></div>
+
+        <!-- 3. Program Highlights (Curated Grid) -->
+        <section id="highlights" class="py-28 relative highlights-bg">
+            <!-- Calm background: subtle abstract shape -->
+            <div class="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-electric/20 to-purple-accent/20 rounded-full blur-3xl"></div>
+            </div>
+            
+            <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-black mb-6">Program Highlights</h2>
+                    <p class="text-lg text-gray-300 max-w-2xl mx-auto">
+                        Everything you need to build, sell, and scale with AI—faster.
+                    </p>
+                </div>
+                
+                <!-- Curated Layout: Featured Card + Supporting Cards -->
+                <div class="grid lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Featured Card (Left, Bigger) -->
+                    <div class="lg:col-span-2 glass-card rounded-2xl p-10 hover:border-cyan-electric/30 transition-all border border-cyan-electric/10">
+                        <div class="flex items-start justify-between mb-6">
+                            <div class="w-16 h-16 rounded-xl bg-cyan-electric/10 flex items-center justify-center">
+                                <i class="fas fa-graduation-cap text-3xl text-cyan-electric"></i>
+                            </div>
+                        </div>
+                        <h3 class="text-3xl font-black mb-4">Online Courses</h3>
+                        <p class="text-gray-300 leading-relaxed mb-6 text-lg">
+                            Comprehensive AI-powered courses designed to accelerate your learning and implementation.
+                        </p>
+                        <div class="space-y-2 mb-6">
+                            <div class="flex items-center gap-2 text-sm text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-xs"></i>
+                                <span>Video lessons with AI summaries</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-xs"></i>
+                                <span>Downloadable templates and resources</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-xs"></i>
+                                <span>Real-world case studies</span>
+                            </div>
+                        </div>
+                        <a href="#" class="text-cyan-electric text-sm font-semibold hover:underline inline-flex items-center gap-2">
+                            See what's inside <i class="fas fa-arrow-right text-xs"></i>
+                        </a>
+                    </div>
+                    
+                    <!-- Supporting Cards (Right Column) -->
+                    <div class="space-y-6">
+                        <!-- Supporting Card 1 -->
+                        <div class="glass-card rounded-xl p-6 hover:border-purple-accent/20 transition-all border border-cyan-electric/5">
+                            <div class="w-12 h-12 rounded-lg bg-purple-accent/10 flex items-center justify-center mb-4">
+                                <i class="fas fa-user-tie text-xl text-purple-accent"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3">Mentoring</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed mb-4">
+                                One-on-one guidance from industry experts to help you navigate your AI transformation journey.
+                            </p>
+                            <div class="space-y-1.5 mb-4">
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                    <span>Done-for-you prompts</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                    <span>Strategic planning sessions</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                    <span>Accountability check-ins</span>
+                                </div>
+                            </div>
+                            <a href="#" class="text-purple-accent text-xs font-semibold hover:underline inline-flex items-center gap-1">
+                                See what's inside <i class="fas fa-arrow-right text-[10px]"></i>
+                            </a>
+                        </div>
+                        
+                        <!-- Supporting Card 2 -->
+                        <div class="glass-card rounded-xl p-6 hover:border-cyan-electric/20 transition-all border border-cyan-electric/5">
+                            <div class="w-12 h-12 rounded-lg bg-cyan-electric/10 flex items-center justify-center mb-4">
+                                <i class="fas fa-microphone text-xl text-cyan-electric"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3">Public Speaking</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed mb-4">
+                                Master the art of presenting your AI-powered solutions with confidence and impact.
+                            </p>
+                            <div class="space-y-1.5 mb-4">
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                    <span>Live training sessions</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                    <span>Presentation templates</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                    <span>Video feedback</span>
+                                </div>
+                            </div>
+                            <a href="#" class="text-cyan-electric text-xs font-semibold hover:underline inline-flex items-center gap-1">
+                                See what's inside <i class="fas fa-arrow-right text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bottom Row: Remaining Cards -->
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- Card 4 -->
+                    <div class="glass-card rounded-xl p-6 hover:border-emerald-glow/20 transition-all border border-cyan-electric/5">
+                        <div class="w-12 h-12 rounded-lg bg-emerald-glow/10 flex items-center justify-center mb-4">
+                            <i class="fas fa-book text-xl text-emerald-glow"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-3">Books/eBooks</h3>
+                        <p class="text-gray-300 text-sm leading-relaxed mb-4">
+                            Access to exclusive books and digital resources covering the latest AI strategies.
+                        </p>
+                        <div class="space-y-1.5 mb-4">
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-emerald-glow text-[10px]"></i>
+                                <span>Case studies included</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-emerald-glow text-[10px]"></i>
+                                <span>Downloadable PDFs</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-emerald-glow text-[10px]"></i>
+                                <span>Updated quarterly</span>
+                            </div>
+                        </div>
+                        <a href="#" class="text-emerald-glow text-xs font-semibold hover:underline inline-flex items-center gap-1">
+                            See what's inside <i class="fas fa-arrow-right text-[10px]"></i>
+                        </a>
+                    </div>
+                    
+                    <!-- Card 5 -->
+                    <div class="glass-card rounded-xl p-6 hover:border-purple-accent/20 transition-all border border-cyan-electric/5">
+                        <div class="w-12 h-12 rounded-lg bg-purple-accent/10 flex items-center justify-center mb-4">
+                            <i class="fas fa-handshake text-xl text-purple-accent"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-3">Consultancy</h3>
+                        <p class="text-gray-300 text-sm leading-relaxed mb-4">
+                            Strategic consulting services to help you implement AI solutions tailored to your business.
+                        </p>
+                        <div class="space-y-1.5 mb-4">
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                <span>Strategic planning</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                <span>Custom implementation</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-purple-accent text-[10px]"></i>
+                                <span>Ongoing support</span>
+                            </div>
+                        </div>
+                        <a href="#" class="text-purple-accent text-xs font-semibold hover:underline inline-flex items-center gap-1">
+                            See what's inside <i class="fas fa-arrow-right text-[10px]"></i>
+                        </a>
+                    </div>
+                    
+                    <!-- Card 6 -->
+                    <div class="glass-card rounded-xl p-6 hover:border-cyan-electric/20 transition-all border border-cyan-electric/5">
+                        <div class="w-12 h-12 rounded-lg bg-cyan-electric/10 flex items-center justify-center mb-4">
+                            <i class="fas fa-cogs text-xl text-cyan-electric"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-3">Business Processes</h3>
+                        <p class="text-gray-300 text-sm leading-relaxed mb-4">
+                            Streamline and optimize your operations with AI-powered business process automation.
+                        </p>
+                        <div class="space-y-1.5 mb-4">
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                <span>Process automation</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                <span>Workflow templates</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i class="fas fa-check text-cyan-electric text-[10px]"></i>
+                                <span>Integration guides</span>
+                            </div>
+                        </div>
+                        <a href="#" class="text-cyan-electric text-xs font-semibold hover:underline inline-flex items-center gap-1">
+                            See what's inside <i class="fas fa-arrow-right text-[10px]"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Texture Divider -->
+        <div class="texture-divider my-16"></div>
+
+        <!-- 4. How It Works (Timeline Editorial) -->
+        <section class="py-24 relative">
+            <div class="absolute inset-0 bg-gradient-to-r from-cyan-electric/5 via-purple-accent/5 to-emerald-glow/5"></div>
+            <div class="max-w-6xl mx-auto px-6 lg:px-12 relative z-10">
+                <div class="text-center mb-20">
+                    <h2 class="text-4xl lg:text-5xl font-black mb-4">How It Works</h2>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-12 timeline-connector relative">
+                    <!-- Step 1 -->
+                    <div class="text-center relative z-10">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-black text-[#0a0e27]">1</span>
+                        </div>
+                        <h3 class="text-2xl font-black mb-2">Join & Get Access</h3>
+                        <p class="text-gray-300 mb-3">Sign up and gain instant access</p>
+                        <div class="glass-card rounded-lg px-4 py-2 inline-block border border-cyan-electric/20">
+                            <p class="text-xs text-cyan-electric font-semibold">Access granted + onboarding</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div class="text-center relative z-10">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-accent to-emerald-glow flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-black text-white">2</span>
+                        </div>
+                        <h3 class="text-2xl font-black mb-2">Learn Through Lessons</h3>
+                        <p class="text-gray-300 mb-3">Progress through guided content</p>
+                        <div class="glass-card rounded-lg px-4 py-2 inline-block border border-purple-accent/20">
+                            <p class="text-xs text-purple-accent font-semibold">Lessons + AI summaries + resources</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3 -->
+                    <div class="text-center relative z-10">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-glow to-cyan-electric flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-black text-[#0a0e27]">3</span>
+                        </div>
+                        <h3 class="text-2xl font-black mb-2">Earn Certification</h3>
+                        <p class="text-gray-300 mb-3">Pass the exam and get certified</p>
+                        <div class="glass-card rounded-lg px-4 py-2 inline-block border border-emerald-glow/20">
+                            <p class="text-xs text-emerald-glow font-semibold">Exam + Accredible certificate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Texture Divider -->
+        <div class="texture-divider my-16"></div>
+
+        <!-- 5. About Kane & Alessia (Profile, Not Paragraph Dump) -->
+        <section id="about" class="py-28 relative">
+            <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                <div class="grid lg:grid-cols-2 gap-20 items-start">
+                    <!-- Left Column: Profile Layout -->
+                    <div class="space-y-10">
+                        <h2 class="text-4xl lg:text-5xl font-black">Leaders in AI Adoption</h2>
+                        <!-- Positioning Paragraph (3 lines max) -->
+                        <p class="text-lg text-gray-200 leading-relaxed">
+                            With over 25 years of experience in Silicon Valley and 32 countries, we've built 40+ companies and achieved 4× 7-figure tech exits. We've impacted over 3 million professionals through our programs, presentations, and mentorship.
+                        </p>
+                        
+                        <!-- Mini Blocks -->
+                        <div class="space-y-6">
+                            <!-- Block 1 -->
+                            <div class="glass-card rounded-xl p-6 border border-cyan-electric/10">
+                                <h3 class="text-lg font-bold mb-2 text-cyan-electric">AI Adoption Leaders</h3>
+                                <p class="text-sm text-gray-300 leading-relaxed mb-2">
+                                    Our approach combines cutting-edge AI tools with proven business strategies to deliver real results.
+                                </p>
+                                <p class="text-xs text-gray-400">Shared stages with industry leaders worldwide</p>
+                            </div>
+                            
+                            <!-- Block 2 -->
+                            <div class="glass-card rounded-xl p-6 border border-purple-accent/10">
+                                <h3 class="text-lg font-bold mb-2 text-purple-accent">$500M in Sales</h3>
+                                <p class="text-sm text-gray-300 leading-relaxed mb-2">
+                                    Across 40+ companies, we've generated over half a billion dollars in product sales.
+                                </p>
+                                <p class="text-xs text-gray-400">From startups to Fortune 500 companies</p>
+                            </div>
+                            
+                            <!-- Block 3 -->
+                            <div class="glass-card rounded-xl p-6 border border-emerald-glow/10">
+                                <h3 class="text-lg font-bold mb-2 text-emerald-glow">Recognized by Peers</h3>
+                                <p class="text-sm text-gray-300 leading-relaxed mb-2">
+                                    Featured in 300+ media channels and recognized with 30 industry awards.
+                                </p>
+                                <p class="text-xs text-gray-400">Trusted by 3 million professionals globally</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Signature Quote Card -->
+                        <div class="glass-card rounded-xl p-6 border-l-4 border-cyan-electric/50">
+                            <p class="text-xl font-semibold text-gray-100 italic leading-relaxed mb-3">
+                                "AI doesn't replace entrepreneurs — it multiplies them."
+                            </p>
+                            <p class="text-sm text-gray-400">— Kane & Alessia</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: One Strong Portrait/Stage Shot -->
+                    <div class="relative">
+                        <!-- Portrait: Clean stage shot or keynote -->
+                        <div class="relative rounded-2xl overflow-hidden">
+                            <div class="aspect-[4/5] bg-gradient-to-br from-[#0a0e27] via-[#1a1f3a] to-[#000000] flex items-center justify-center border border-cyan-electric/10 relative">
+                                <div class="text-center relative z-10">
+                                    <i class="fas fa-user-friends text-6xl text-cyan-electric/20 mb-4"></i>
+                                    <p class="text-gray-500 text-sm">Kane & Alessia Portrait</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Texture Divider -->
+        <div class="texture-divider my-16"></div>
+
+        <!-- 6. Stats Section (Proof Layout) -->
+        <section id="results" class="py-24 relative">
+            <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                <!-- Context Label -->
+                <div class="text-center mb-12">
+                    <p class="text-sm tracking-wide text-gray-400 mb-2">The numbers behind the work</p>
+                    <h2 class="text-4xl lg:text-5xl font-black mb-6">Results That Speak</h2>
+                </div>
+                
+                <!-- Flagship Stats (Large, Less Saturated) -->
+                <div class="grid md:grid-cols-3 gap-10 mb-16">
+                    <div class="glass-card rounded-2xl p-12 text-center border border-cyan-electric/10 shadow-lg">
+                        <div class="text-7xl lg:text-8xl font-black text-cyan-electric/90 mb-5">32</div>
+                        <div class="text-2xl font-bold mb-3 text-gray-200">Countries</div>
+                        <div class="text-sm text-gray-400">3000+ presentations</div>
+                    </div>
+                    
+                    <div class="glass-card rounded-2xl p-12 text-center border border-purple-accent/10 shadow-lg">
+                        <div class="text-7xl lg:text-8xl font-black text-purple-accent/90 mb-5">$500M</div>
+                        <div class="text-2xl font-bold mb-3 text-gray-200">Sales</div>
+                        <div class="text-sm text-gray-400">Across 40+ companies</div>
+                    </div>
+                    
+                    <div class="glass-card rounded-2xl p-12 text-center border border-emerald-glow/10 shadow-lg">
+                        <div class="text-7xl lg:text-8xl font-black text-emerald-glow/90 mb-5">3M</div>
+                        <div class="text-2xl font-bold mb-3 text-gray-200">Professionals</div>
+                        <div class="text-sm text-gray-400">Impacted globally</div>
+                    </div>
+                </div>
+                
+                <!-- Supporting Stats (Softer Row) -->
+                <div class="grid md:grid-cols-3 gap-6 mb-10">
+                    <div class="glass-card rounded-xl p-6 text-center border border-cyan-electric/5">
+                        <div class="text-4xl font-black text-cyan-electric/80 mb-2">3000+</div>
+                        <div class="text-sm font-semibold mb-1 text-gray-300">Presentations</div>
+                        <div class="text-xs text-gray-500">Worldwide</div>
+                    </div>
+                    
+                    <div class="glass-card rounded-xl p-6 text-center border border-purple-accent/5">
+                        <div class="text-4xl font-black text-purple-accent/80 mb-2">2200</div>
+                        <div class="text-sm font-semibold mb-1 text-gray-300">Businesses</div>
+                        <div class="text-xs text-gray-500">Mentored</div>
+                    </div>
+                    
+                    <div class="glass-card rounded-xl p-6 text-center border border-emerald-glow/5">
+                        <div class="text-4xl font-black text-emerald-glow/80 mb-2">30</div>
+                        <div class="text-sm font-semibold mb-1 text-gray-300">Awards</div>
+                        <div class="text-xs text-gray-500">Industry recognition</div>
+                    </div>
+                </div>
+                
+                <!-- Press Strip -->
+                <div class="text-center">
+                    <p class="text-sm text-gray-400 italic">Featured in 300+ media channels worldwide</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Texture Divider -->
+        <div class="texture-divider my-16"></div>
+
+        <!-- 7. Join Us Form (Luxury Checkout - Calm Background) -->
+        <section id="join" class="py-28 relative join-bg">
+            <!-- Calm backdrop: deep dark gradient + subtle glow (NO crowd photo) -->
+            <div class="absolute inset-0 opacity-10 pointer-events-none">
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);"></div>
+            </div>
+            
+            <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+                <div class="grid lg:grid-cols-2 gap-20 items-start">
+                    <!-- Left: Persuasive Copy -->
+                    <div class="space-y-8 pt-4">
+                        <h2 class="text-4xl lg:text-5xl font-black">Apply for Membership</h2>
+                        <p class="text-lg text-gray-300 leading-relaxed">
+                            We read every application. Tell us about your goals and we'll help you get started on your AI transformation journey.
+                        </p>
+                        <ul class="space-y-4">
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
+                                <span class="text-gray-300">Instant access after approval</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
+                                <span class="text-gray-300">Guided lessons + resources</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
+                                <span class="text-gray-300">Certification pathway</span>
+                            </li>
+                        </ul>
+                        
+                        <!-- What Happens Next Box -->
+                        <div class="glass-card rounded-xl p-6 border border-cyan-electric/20 mt-8">
+                            <h3 class="font-semibold mb-4 text-cyan-electric">What happens next:</h3>
+                            <div class="space-y-3 text-sm text-gray-300">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">1</span>
+                                    <span>Submit application</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">2</span>
+                                    <span>Confirmation email</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">3</span>
+                                    <span>Access steps / onboarding</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Form Card (Lighter, Premium) -->
+                    <div class="glass-card rounded-2xl p-10 border border-cyan-electric/10">
+                        <form class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-semibold mb-3 text-gray-300">Name</label>
+                                <input type="text" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="Your first name">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-3 text-gray-300">Surname</label>
+                                <input type="text" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="Your last name">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-3 text-gray-300">Email</label>
+                                <input type="email" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="your@email.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-3 text-gray-300">
+                                    Message <span class="text-gray-500 text-xs font-normal">(max 350 characters)</span>
+                                </label>
+                                <textarea rows="5" maxlength="350" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all resize-none placeholder-gray-600" placeholder="Tell us about your goals..."></textarea>
+                                <div class="text-xs text-gray-500 mt-2 text-right"><span id="char-count">0</span>/350</div>
+                            </div>
+                            <button type="submit" class="w-full px-8 py-4 bg-gradient-to-r from-emerald-glow to-cyan-electric hover:from-emerald-glow/90 hover:to-cyan-electric/90 text-[#0a0e27] font-bold rounded-xl transition-all shadow-lg shadow-emerald-glow/20">
+                                Submit Application
+                            </button>
+                            <div class="text-xs text-gray-500 text-center pt-4 border-t border-cyan-electric/10 space-y-1">
+                                <p>Your info stays private. Always.</p>
+                                <p>We reply within 24–48 hours.</p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Texture Divider -->
+        <div class="texture-divider my-16"></div>
+
+        <!-- 8. Community CTA -->
+        <section class="py-20 relative">
+            <div class="max-w-5xl mx-auto px-6 lg:px-12">
+                <div class="glass-card rounded-2xl p-12 text-center border border-cyan-electric/10">
+                    <h2 class="text-4xl font-black mb-4">Join our Facebook Forum</h2>
+                    <p class="text-lg text-gray-300 mb-8">Connect with entrepreneurs building with AI.</p>
+                    
+                    <!-- Avatar Cluster (Dummy Image #6) -->
+                    <div class="flex justify-center items-center gap-4 mb-8">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent border-2 border-[#0a0e27]"></div>
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-accent to-emerald-glow border-2 border-[#0a0e27] -ml-4"></div>
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-glow to-cyan-electric border-2 border-[#0a0e27] -ml-4"></div>
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent border-2 border-[#0a0e27] -ml-4"></div>
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-accent to-emerald-glow border-2 border-[#0a0e27] -ml-4"></div>
+                    </div>
+                    
+                    <a href="#" class="inline-block px-8 py-4 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all shadow-xl shadow-cyan-electric/30">
+                        Enter the Community
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. Footer -->
+        <footer class="py-12 border-t border-cyan-electric/10">
+            <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center">
+                            <i class="fas fa-bolt text-white"></i>
+                        </div>
+                        <div class="text-lg font-bold">AI-Assisted Entrepreneur Hub</div>
+                    </div>
+                    <div class="flex items-center gap-6 text-sm text-gray-400">
+                        <a href="#" class="hover:text-cyan-electric transition-colors">Terms</a>
+                        <a href="#" class="hover:text-cyan-electric transition-colors">Privacy</a>
+                        <a href="#" class="hover:text-cyan-electric transition-colors">Support</a>
+                        <a href="{% url 'login' %}" class="hover:text-cyan-electric transition-colors">Login</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Nav scroll effect
+        window.addEventListener('scroll', function() {
+            const nav = document.getElementById('main-nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('nav-scrolled');
+            } else {
+                nav.classList.remove('nav-scrolled');
+            }
+        });
+        
+        // Character counter
+        const textarea = document.querySelector('textarea[maxlength="350"]');
+        const charCount = document.getElementById('char-count');
+        if (textarea && charCount) {
+            textarea.addEventListener('input', function() {
+                charCount.textContent = this.value.length;
+            });
+        }
+        
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

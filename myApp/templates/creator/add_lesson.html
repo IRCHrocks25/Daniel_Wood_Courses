@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Lesson - {{ course.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full min-h-screen bg-[#0a0e27] py-8">
+    <div class="max-w-[1600px] mx-auto px-6">
+        <!-- Header -->
+        <div class="mb-8">
+            <a href="{% url 'course_lessons' course.slug %}" class="text-cyan-electric hover:text-cyan-electric/80 text-sm mb-4 inline-flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to {{ course.name }}
+            </a>
+            <h1 class="text-4xl font-bold mb-2">Add New Lesson</h1>
+            <p class="text-gray-400">Upload your video and let AI organize everything</p>
+        </div>
+
+        <!-- Two-Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column: Main Form -->
+            <div class="lg:col-span-2">
+                <div class="bg-[#0f1529]/80 backdrop-blur-sm border border-cyan-electric/10 rounded-2xl p-8 shadow-2xl">
+                    <form method="POST" id="lesson-form" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- STEP 1: Video Input -->
+                        <div class="mb-8">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent text-[#0a0e27] flex items-center justify-center font-bold text-lg">1</div>
+                                <h2 class="text-2xl font-bold">Video Input</h2>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <!-- Video File Upload -->
+                                <div>
+                                    <label class="block text-sm font-semibold mb-3 uppercase tracking-wider text-cyan-electric/70">
+                                        <i class="fas fa-upload mr-2"></i>Upload MP4 Video File
+                                    </label>
+                                    <div class="relative">
+                                        <input 
+                                            type="file" 
+                                            name="video_file" 
+                                            id="video-file"
+                                            accept="video/mp4"
+                                            class="hidden"
+                                        >
+                                        <label for="video-file" class="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-cyan-electric/30 rounded-xl bg-[#0a0e27]/40 cursor-pointer hover:border-cyan-electric/50 hover:bg-[#0a0e27]/60 transition-all group">
+                                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                                <i class="fas fa-cloud-upload-alt text-5xl text-cyan-electric/50 mb-4 group-hover:text-cyan-electric transition-colors"></i>
+                                                <p class="mb-2 text-sm text-gray-400">
+                                                    <span class="font-semibold text-cyan-electric">Click to upload</span> or drag and drop
+                                                </p>
+                                                <p class="text-xs text-gray-500">MP4 video file (MAX. 500MB)</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-2">
+                                        <i class="fas fa-info-circle mr-1"></i> Video will be automatically transcribed after upload.
+                                    </p>
+                                    <!-- Upload Progress -->
+                                    <div id="upload-progress" class="hidden mt-4">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="flex-1 bg-gray-700/30 rounded-full h-2 overflow-hidden">
+                                                <div id="progress-bar" class="bg-gradient-to-r from-cyan-electric to-purple-accent h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                                            </div>
+                                            <span id="progress-text" class="text-xs text-gray-400">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- OR Divider -->
+                                <div class="relative my-6">
+                                    <div class="absolute inset-0 flex items-center">
+                                        <div class="w-full border-t border-cyan-electric/10"></div>
+                                    </div>
+                                    <div class="relative flex justify-center text-sm">
+                                        <span class="px-4 bg-[#0f1529] text-gray-500 uppercase tracking-wider">OR</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Vimeo URL Input -->
+                                <div>
+                                    <label class="block text-sm font-semibold mb-3 uppercase tracking-wider text-cyan-electric/70">
+                                        <i class="fab fa-vimeo mr-2"></i>Paste Vimeo video link
+                                    </label>
+                                    <input 
+                                        type="url" 
+                                        name="vimeo_url" 
+                                        id="vimeo-url"
+                                        placeholder="https://vimeo.com/xxxxxxxxx"
+                                        class="w-full bg-[#0a0e27]/60 border border-cyan-electric/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-electric/50 focus:bg-[#0a0e27]/80 transition-all"
+                                    >
+                                    <p class="text-xs text-gray-400 mt-2">
+                                        We'll automatically detect metadata, duration, and thumbnail.
+                                    </p>
+                                </div>
+                                
+                                <!-- Video Preview (hidden initially) -->
+                                <div id="video-preview" class="hidden mt-4 p-5 bg-cyan-electric/5 border border-cyan-electric/20 rounded-xl">
+                                    <div class="flex gap-4">
+                                        <img id="preview-thumbnail" src="" alt="Video thumbnail" class="w-40 h-24 object-cover rounded-lg">
+                                        <div class="flex-1">
+                                            <div id="preview-title" class="font-semibold mb-2 text-white"></div>
+                                            <div class="text-sm text-gray-400 mb-2">
+                                                <i class="fas fa-clock mr-2"></i>
+                                                <span id="preview-duration"></span>
+                                            </div>
+                                            <div class="text-sm text-green-400 flex items-center gap-2">
+                                                <i class="fas fa-check-circle"></i>
+                                                <span>Video successfully recognized</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STEP 2: Lesson Context -->
+                        <div class="mb-8 border-t border-cyan-electric/10 pt-8">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent text-[#0a0e27] flex items-center justify-center font-bold text-lg">2</div>
+                                <h2 class="text-2xl font-bold">Lesson Context</h2>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-3">
+                                        Working Lesson Title
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        name="working_title" 
+                                        placeholder="Sprint 8.0 – Session 1: Orientation"
+                                        class="w-full bg-[#0a0e27]/60 border border-cyan-electric/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-electric/50 focus:bg-[#0a0e27]/80 transition-all"
+                                        required
+                                    >
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-3">
+                                        Optional: Notes or rough outline for AI
+                                    </label>
+                                    <textarea 
+                                        name="rough_notes" 
+                                        rows="6"
+                                        placeholder="Drop session notes, bullets, workshop outline, or even messy copy here. The AI will use this to generate better descriptions and outcomes."
+                                        class="w-full bg-[#0a0e27]/60 border border-cyan-electric/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-electric/50 focus:bg-[#0a0e27]/80 resize-none transition-all"
+                                    ></textarea>
+                                    <p class="text-xs text-gray-400 mt-2">
+                                        If you don't add anything, the AI still handles the description based on the video title — but notes improve accuracy.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden transcription field -->
+                        <input type="hidden" name="transcription" id="transcription-input">
+
+                        <!-- STEP 3: AI Generation Button -->
+                        <div class="border-t border-cyan-electric/10 pt-8">
+                            <button 
+                                type="submit"
+                                id="generate-btn"
+                                class="w-full px-6 py-4 bg-gradient-to-r from-cyan-electric to-purple-accent text-[#0a0e27] rounded-xl font-bold text-lg hover:shadow-2xl hover:shadow-cyan-electric/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            >
+                                <i class="fas fa-magic mr-2"></i>
+                                Generate Lesson Description & Outputs
+                            </button>
+                            <p class="text-xs text-gray-400 mt-3 text-center">
+                                The AI will generate: clean title, summary, full description, outcomes, and recommended coach actions.
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Right Column: Transcription Panel -->
+            <div class="lg:col-span-1">
+                <div class="bg-[#0f1529]/80 backdrop-blur-sm border border-cyan-electric/10 rounded-2xl p-6 shadow-2xl sticky top-24">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold flex items-center gap-2">
+                            <i class="fas fa-file-alt text-cyan-electric"></i>
+                            Transcription
+                        </h3>
+                        <button id="copy-transcription" class="hidden text-xs text-cyan-electric/70 hover:text-cyan-electric transition-colors" title="Copy transcription">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Transcription Status -->
+                    <div id="transcription-status" class="mb-4">
+                        <div id="status-pending" class="text-center py-8">
+                            <i class="fas fa-file-video text-4xl text-gray-600 mb-3"></i>
+                            <p class="text-sm text-gray-400">Upload a video to generate transcription</p>
+                        </div>
+                        
+                        <div id="status-processing" class="hidden text-center py-8">
+                            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-cyan-electric/10 mb-4">
+                                <i class="fas fa-spinner fa-spin text-2xl text-cyan-electric"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-cyan-electric mb-1">Generating transcription...</p>
+                            <p class="text-xs text-gray-400">This may take a moment</p>
+                        </div>
+                        
+                        <div id="status-error" class="hidden text-center py-6">
+                            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-3">
+                                <i class="fas fa-exclamation-triangle text-xl text-red-400"></i>
+                            </div>
+                            <p class="text-sm text-red-400 mb-2" id="error-message">Transcription failed</p>
+                            <button id="retry-transcription" class="px-4 py-2 bg-cyan-electric/10 border border-cyan-electric/30 rounded-lg text-xs text-cyan-electric hover:bg-cyan-electric/20 transition-colors">
+                                <i class="fas fa-redo mr-1"></i> Retry Transcription
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Transcription Content -->
+                    <div id="transcription-content" class="hidden">
+                        <textarea 
+                            id="transcription-textarea"
+                            rows="20"
+                            class="w-full bg-[#0a0e27]/60 border border-cyan-electric/20 rounded-xl px-4 py-3 text-sm text-gray-300 focus:outline-none focus:border-cyan-electric/50 focus:bg-[#0a0e27]/80 resize-none transition-all font-mono leading-relaxed"
+                            placeholder="Transcription will appear here..."
+                        ></textarea>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2 mt-4">
+                            <button id="use-for-description" class="flex-1 px-3 py-2 bg-cyan-electric/10 border border-cyan-electric/30 rounded-lg text-xs text-cyan-electric hover:bg-cyan-electric/20 transition-colors">
+                                <i class="fas fa-magic mr-1"></i> Use for Description
+                            </button>
+                            <button id="copy-transcription-btn" class="px-3 py-2 bg-cyan-electric/10 border border-cyan-electric/30 rounded-lg text-xs text-cyan-electric hover:bg-cyan-electric/20 transition-colors">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-3 text-center">
+                            <i class="fas fa-edit mr-1"></i> You can edit the transcription directly
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const videoFileInput = document.getElementById('video-file');
+    const vimeoUrlInput = document.getElementById('vimeo-url');
+    const videoPreview = document.getElementById('video-preview');
+    const generateBtn = document.getElementById('generate-btn');
+    const transcriptionInput = document.getElementById('transcription-input');
+    const transcriptionTextarea = document.getElementById('transcription-textarea');
+    const transcriptionContent = document.getElementById('transcription-content');
+    const uploadProgress = document.getElementById('upload-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    
+    // Status elements
+    const statusPending = document.getElementById('status-pending');
+    const statusProcessing = document.getElementById('status-processing');
+    const statusError = document.getElementById('status-error');
+    const errorMessage = document.getElementById('error-message');
+    const retryBtn = document.getElementById('retry-transcription');
+    const copyTranscriptionBtn = document.getElementById('copy-transcription');
+    const copyTranscriptionBtn2 = document.getElementById('copy-transcription-btn');
+    const useForDescriptionBtn = document.getElementById('use-for-description');
+    
+    let vimeoVerified = false;
+    let transcriptionData = '';
+    let currentVideoFile = null;
+    
+    // Show status
+    function showStatus(status) {
+        statusPending.classList.add('hidden');
+        statusProcessing.classList.add('hidden');
+        statusError.classList.add('hidden');
+        transcriptionContent.classList.add('hidden');
+        
+        if (status === 'pending') {
+            statusPending.classList.remove('hidden');
+        } else if (status === 'processing') {
+            statusProcessing.classList.remove('hidden');
+        } else if (status === 'error') {
+            statusError.classList.remove('hidden');
+        } else if (status === 'completed') {
+            transcriptionContent.classList.remove('hidden');
+            copyTranscriptionBtn.classList.remove('hidden');
+        }
+    }
+    
+    // Handle video file upload
+    videoFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.toLowerCase().endsWith('.mp4')) {
+            alert('Please upload an MP4 video file');
+            this.value = '';
+            return;
+        }
+        
+        currentVideoFile = file;
+        showStatus('processing');
+        uploadProgress.classList.remove('hidden');
+        
+        // Upload and transcribe
+        const formData = new FormData();
+        formData.append('video_file', file);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        // Simulate upload progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += 10;
+            if (progress <= 90) {
+                progressBar.style.width = progress + '%';
+                progressText.textContent = progress + '%';
+            }
+        }, 200);
+        
+        fetch('{% url "upload_video_transcribe" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressText.textContent = '100%';
+            
+            setTimeout(() => {
+                uploadProgress.classList.add('hidden');
+            }, 500);
+            
+            if (data.success) {
+                transcriptionData = data.transcription;
+                transcriptionTextarea.value = data.transcription;
+                transcriptionInput.value = data.transcription;
+                showStatus('completed');
+                generateBtn.disabled = false;
+            } else {
+                errorMessage.textContent = data.error || 'Transcription failed';
+                showStatus('error');
+            }
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            uploadProgress.classList.add('hidden');
+            errorMessage.textContent = 'Error: ' + error.message;
+            showStatus('error');
+        });
+    });
+    
+    // Retry transcription
+    retryBtn.addEventListener('click', function() {
+        if (currentVideoFile) {
+            videoFileInput.dispatchEvent(new Event('change'));
+        }
+    });
+    
+    // Copy transcription
+    copyTranscriptionBtn.addEventListener('click', copyTranscription);
+    copyTranscriptionBtn2.addEventListener('click', copyTranscription);
+    
+    function copyTranscription() {
+        transcriptionTextarea.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const originalText = copyTranscriptionBtn2.innerHTML;
+        copyTranscriptionBtn2.innerHTML = '<i class="fas fa-check"></i>';
+        copyTranscriptionBtn2.classList.add('bg-green-500/20', 'border-green-500/30', 'text-green-400');
+        setTimeout(() => {
+            copyTranscriptionBtn2.innerHTML = originalText;
+            copyTranscriptionBtn2.classList.remove('bg-green-500/20', 'border-green-500/30', 'text-green-400');
+        }, 2000);
+    }
+    
+    // Use transcription for description
+    useForDescriptionBtn.addEventListener('click', function() {
+        const roughNotes = document.querySelector('textarea[name="rough_notes"]');
+        roughNotes.value = transcriptionTextarea.value;
+        roughNotes.focus();
+    });
+    
+    // Update transcription when edited
+    transcriptionTextarea.addEventListener('input', function() {
+        transcriptionData = this.value;
+        transcriptionInput.value = this.value;
+    });
+    
+    // Verify Vimeo URL on blur
+    vimeoUrlInput.addEventListener('blur', function() {
+        const url = this.value.trim();
+        if (!url) {
+            videoPreview.classList.add('hidden');
+            if (!transcriptionData) {
+                generateBtn.disabled = true;
+            }
+            vimeoVerified = false;
+            return;
+        }
+        
+        // Verify URL
+        fetch('{% url "verify_vimeo_url" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `vimeo_url=${encodeURIComponent(url)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('preview-thumbnail').src = data.thumbnail;
+                document.getElementById('preview-title').textContent = data.title || 'Video recognized';
+                document.getElementById('preview-duration').textContent = `Duration: ${data.duration_formatted}`;
+                videoPreview.classList.remove('hidden');
+                generateBtn.disabled = false;
+                vimeoVerified = true;
+            } else {
+                videoPreview.classList.add('hidden');
+                if (!transcriptionData) {
+                    generateBtn.disabled = true;
+                }
+                vimeoVerified = false;
+                alert('Could not verify Vimeo URL: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            videoPreview.classList.add('hidden');
+            if (!transcriptionData) {
+                generateBtn.disabled = true;
+            }
+            vimeoVerified = false;
+        });
+    });
+    
+    // Enable generate button if either vimeo or transcription is available
+    function checkFormReady() {
+        if (vimeoVerified || transcriptionData) {
+            generateBtn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

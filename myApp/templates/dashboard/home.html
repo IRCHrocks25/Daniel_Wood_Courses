@@ -70,27 +70,57 @@
     </div>
     
     <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4">Recent Activity</h2>
-        <div class="space-y-3">
-            {% for lesson in recent_lessons|slice:":5" %}
-            <div class="flex items-center gap-3 p-3 bg-[#0a0e27]/40 rounded-lg">
-                <div class="w-10 h-10 rounded-lg bg-cyan-electric/20 flex items-center justify-center">
-                    <i class="fas fa-video text-cyan-electric"></i>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold">Student Activity Feed</h2>
+            <a href="{% url 'dashboard_students' %}" class="text-sm text-cyan-electric hover:text-cyan-electric/80">
+                View All <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+        <div class="space-y-3 max-h-[400px] overflow-y-auto">
+            {% if student_activities %}
+            {% for activity in student_activities|slice:":10" %}
+            <div class="flex items-start gap-3 p-3 bg-[#0a0e27]/40 rounded-lg hover:bg-[#0a0e27]/60 transition-all">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                    {% if activity.type == 'lesson_completed' %}bg-green-500/20 text-green-400
+                    {% elif activity.type == 'exam_attempt' %}bg-purple-accent/20 text-purple-accent
+                    {% elif activity.type == 'certification_issued' %}bg-yellow-500/20 text-yellow-400
+                    {% else %}bg-cyan-electric/20 text-cyan-electric{% endif %}">
+                    {% if activity.type == 'lesson_completed' %}
+                    <i class="fas fa-check-circle text-xs"></i>
+                    {% elif activity.type == 'exam_attempt' %}
+                    <i class="fas fa-clipboard-check text-xs"></i>
+                    {% elif activity.type == 'certification_issued' %}
+                    <i class="fas fa-certificate text-xs"></i>
+                    {% else %}
+                    <i class="fas fa-chart-line text-xs"></i>
+                    {% endif %}
                 </div>
-                <div class="flex-1">
-                    <div class="font-semibold text-sm">{{ lesson.title }}</div>
-                    <div class="text-xs text-gray-400">{{ lesson.course.name }}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm mb-1">
+                        <span class="font-semibold">{{ activity.user.get_full_name|default:activity.user.username }}</span>
+                        {% if activity.type == 'lesson_completed' %}
+                        completed <span class="text-cyan-electric">{{ activity.lesson.title }}</span>
+                        {% elif activity.type == 'exam_attempt' %}
+                        {% if activity.data.passed %}
+                        <span class="text-green-400">passed</span> exam for <span class="text-cyan-electric">{{ activity.course.name }}</span>
+                        {% else %}
+                        <span class="text-red-400">attempted</span> exam for <span class="text-cyan-electric">{{ activity.course.name }}</span>
+                        {% endif %}
+                        {% elif activity.type == 'certification_issued' %}
+                        earned certification for <span class="text-yellow-400">{{ activity.course.name }}</span>
+                        {% else %}
+                        updated progress in <span class="text-cyan-electric">{{ activity.lesson.title }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-gray-400">
+                        <i class="fas fa-clock mr-1"></i>{{ activity.timestamp|timesince }} ago
+                    </div>
                 </div>
-                <span class="px-2 py-1 rounded text-xs
-                    {% if lesson.ai_generation_status == 'approved' %}bg-green-500/20 text-green-400
-                    {% elif lesson.ai_generation_status == 'generated' %}bg-yellow-500/20 text-yellow-400
-                    {% else %}bg-gray-500/20 text-gray-400{% endif %}">
-                    {{ lesson.get_ai_generation_status_display }}
-                </span>
             </div>
-            {% empty %}
-            <p class="text-gray-400 text-sm">No recent activity</p>
             {% endfor %}
+            {% else %}
+            <p class="text-gray-400 text-sm">No recent student activity</p>
+            {% endif %}
         </div>
     </div>
 </div>

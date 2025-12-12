@@ -7,7 +7,10 @@ from django.db.models import Count, Q
 import json
 import re
 import requests
-from .models import Course, Lesson, Module, UserProgress, CourseEnrollment
+from .models import Course, Lesson, Module, UserProgress, CourseEnrollment, Exam, ExamAttempt, Certification
+from django.contrib.auth.models import User
+from django.db.models import Avg, Count, Q, Sum
+from django.utils import timezone
 
 
 @staff_member_required
@@ -20,6 +23,9 @@ def dashboard_home(request):
     recent_lessons = Lesson.objects.select_related('course').order_by('-created_at')[:10]
     courses = Course.objects.annotate(lesson_count=Count('lessons')).order_by('-created_at')
     
+    # Get student activity feed
+    student_activities = get_student_activity_feed(limit=10)
+    
     return render(request, 'dashboard/home.html', {
         'total_courses': total_courses,
         'total_lessons': total_lessons,
@@ -27,7 +33,221 @@ def dashboard_home(request):
         'pending_lessons': pending_lessons,
         'recent_lessons': recent_lessons,
         'courses': courses,
+        'student_activities': student_activities,
     })
+
+
+@staff_member_required
+def dashboard_students(request):
+    """Smart student list with activity updates and filtering"""
+    # Get filter parameters
+    course_filter = request.GET.get('course', '')
+    status_filter = request.GET.get('status', 'all')  # all, active, completed, certified
+    search_query = request.GET.get('search', '')
+    sort_by = request.GET.get('sort', 'recent')  # recent, progress, name, enrolled
+    
+    # Get all unique students (users with enrollments)
+    students_query = User.objects.filter(enrollments__isnull=False).distinct()
+    
+    # Apply search filter
+    if search_query:
+        students_query = students_query.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    # Get student data with activity
+    students_data = []
+    for student in students_query:
+        enrollments = CourseEnrollment.objects.filter(user=student).select_related('course')
+        
+        # Apply course filter
+        if course_filter:
+            enrollments = enrollments.filter(course_id=course_filter)
+        
+        if not enrollments.exists():
+            continue
+        
+        # Calculate overall stats
+        total_courses = enrollments.count()
+        total_lessons_all = 0
+        completed_lessons_all = 0
+        certifications_count = 0
+        recent_activity = None
+        
+        for enrollment in enrollments:
+            course = enrollment.course
+            total_lessons = course.lessons.count()
+            completed_lessons = UserProgress.objects.filter(
+                user=student,
+                lesson__course=course,
+                completed=True
+            ).count()
+            total_lessons_all += total_lessons
+            completed_lessons_all += completed_lessons
+            
+            # Check for certification
+            if Certification.objects.filter(user=student, course=course, status='passed').exists():
+                certifications_count += 1
+        
+        overall_progress = int((completed_lessons_all / total_lessons_all * 100)) if total_lessons_all > 0 else 0
+        
+        # Get most recent activity
+        recent_progress = UserProgress.objects.filter(user=student).order_by('-last_accessed').first()
+        recent_exam = ExamAttempt.objects.filter(user=student).order_by('-started_at').first()
+        recent_cert = Certification.objects.filter(user=student).order_by('-issued_at', '-created_at').first()
+        
+        # Determine most recent activity
+        activities = []
+        if recent_progress:
+            activities.append(('progress', recent_progress.last_accessed, recent_progress))
+        if recent_exam:
+            activities.append(('exam', recent_exam.started_at, recent_exam))
+        if recent_cert and recent_cert.issued_at:
+            activities.append(('cert', recent_cert.issued_at, recent_cert))
+        
+        if activities:
+            activities.sort(key=lambda x: x[1], reverse=True)
+            recent_activity = activities[0]
+        
+        # Determine status
+        if certifications_count > 0:
+            student_status = 'certified'
+        elif overall_progress == 100:
+            student_status = 'completed'
+        elif overall_progress > 0:
+            student_status = 'active'
+        else:
+            student_status = 'inactive'
+        
+        # Apply status filter
+        if status_filter != 'all':
+            if status_filter == 'active' and student_status != 'active':
+                continue
+            elif status_filter == 'completed' and student_status != 'completed':
+                continue
+            elif status_filter == 'certified' and student_status != 'certified':
+                continue
+        
+        students_data.append({
+            'student': student,
+            'total_courses': total_courses,
+            'total_lessons': total_lessons_all,
+            'completed_lessons': completed_lessons_all,
+            'overall_progress': overall_progress,
+            'certifications_count': certifications_count,
+            'recent_activity': recent_activity,
+            'status': student_status,
+            'enrollments': enrollments,
+        })
+    
+    # Sort students
+    if sort_by == 'recent':
+        students_data.sort(key=lambda x: x['recent_activity'][1] if x['recent_activity'] else (timezone.now() - timezone.timedelta(days=365)), reverse=True)
+    elif sort_by == 'progress':
+        students_data.sort(key=lambda x: x['overall_progress'], reverse=True)
+    elif sort_by == 'name':
+        students_data.sort(key=lambda x: x['student'].username.lower())
+    elif sort_by == 'enrolled':
+        students_data.sort(key=lambda x: x['student'].date_joined, reverse=True)
+    
+    # Get activity feed
+    activity_feed = get_student_activity_feed(limit=50)
+    
+    courses = Course.objects.all()
+    
+    return render(request, 'dashboard/students.html', {
+        'students_data': students_data,
+        'activity_feed': activity_feed,
+        'courses': courses,
+        'course_filter': course_filter,
+        'status_filter': status_filter,
+        'search_query': search_query,
+        'sort_by': sort_by,
+    })
+
+
+def get_student_activity_feed(limit=20):
+    """Get a comprehensive activity feed of all student activities"""
+    activities = []
+    
+    # Recent lesson completions
+    recent_completions = UserProgress.objects.filter(
+        completed=True,
+        completed_at__isnull=False
+    ).select_related('user', 'lesson', 'lesson__course').order_by('-completed_at')[:limit]
+    
+    for progress in recent_completions:
+        activities.append({
+            'type': 'lesson_completed',
+            'timestamp': progress.completed_at,
+            'user': progress.user,
+            'course': progress.lesson.course,
+            'lesson': progress.lesson,
+            'data': {
+                'watch_percentage': progress.video_watch_percentage,
+            }
+        })
+    
+    # Recent exam attempts
+    recent_exams = ExamAttempt.objects.select_related('user', 'exam', 'exam__course').order_by('-started_at')[:limit]
+    
+    for attempt in recent_exams:
+        activities.append({
+            'type': 'exam_attempt',
+            'timestamp': attempt.started_at,
+            'user': attempt.user,
+            'course': attempt.exam.course,
+            'data': {
+                'score': attempt.score,
+                'passed': attempt.passed,
+                'attempt_number': attempt.attempt_number(),
+            }
+        })
+    
+    # Recent certifications
+    recent_certs = Certification.objects.filter(
+        issued_at__isnull=False
+    ).select_related('user', 'course').order_by('-issued_at')[:limit]
+    
+    for cert in recent_certs:
+        activities.append({
+            'type': 'certification_issued',
+            'timestamp': cert.issued_at,
+            'user': cert.user,
+            'course': cert.course,
+            'data': {
+                'certificate_id': cert.accredible_certificate_id,
+            }
+        })
+    
+    # Recent progress updates (video watch)
+    recent_progress = UserProgress.objects.filter(
+        video_watch_percentage__gt=0,
+        last_accessed__isnull=False
+    ).select_related('user', 'lesson', 'lesson__course').order_by('-last_accessed')[:limit]
+    
+    for progress in recent_progress:
+        # Only add if significant progress (avoid spam)
+        if progress.video_watch_percentage >= 50 or progress.completed:
+            activities.append({
+                'type': 'progress_update',
+                'timestamp': progress.last_accessed,
+                'user': progress.user,
+                'course': progress.lesson.course,
+                'lesson': progress.lesson,
+                'data': {
+                    'watch_percentage': progress.video_watch_percentage,
+                    'status': progress.status,
+                }
+            })
+    
+    # Sort by timestamp (most recent first)
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return activities[:limit]
 
 
 @staff_member_required
@@ -142,6 +362,185 @@ def dashboard_edit_lesson(request, lesson_id):
     """Edit lesson - redirects to AI generation page"""
     lesson = get_object_or_404(Lesson, id=lesson_id)
     return redirect('generate_lesson_ai', course_slug=lesson.course.slug, lesson_id=lesson.id)
+
+
+@staff_member_required
+def dashboard_student_progress(request):
+    """Student progress overview - all students"""
+    # Get filter parameters
+    course_filter = request.GET.get('course', '')
+    search_query = request.GET.get('search', '')
+    
+    # Get all enrollments
+    enrollments = CourseEnrollment.objects.select_related('user', 'course').all()
+    
+    # Apply filters
+    if course_filter:
+        enrollments = enrollments.filter(course_id=course_filter)
+    
+    if search_query:
+        enrollments = enrollments.filter(
+            Q(user__username__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(course__name__icontains=search_query)
+        )
+    
+    # Calculate progress for each enrollment
+    enrollment_data = []
+    for enrollment in enrollments:
+        total_lessons = enrollment.course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(
+            user=enrollment.user,
+            lesson__course=enrollment.course,
+            completed=True
+        ).count()
+        
+        progress_percentage = int((completed_lessons / total_lessons * 100)) if total_lessons > 0 else 0
+        
+        # Get certification status
+        try:
+            cert = Certification.objects.get(user=enrollment.user, course=enrollment.course)
+            cert_status = cert.get_status_display()
+        except Certification.DoesNotExist:
+            cert_status = 'Not Eligible' if progress_percentage < 100 else 'Eligible'
+        
+        enrollment_data.append({
+            'enrollment': enrollment,
+            'total_lessons': total_lessons,
+            'completed_lessons': completed_lessons,
+            'progress_percentage': progress_percentage,
+            'cert_status': cert_status,
+        })
+    
+    courses = Course.objects.all()
+    
+    return render(request, 'dashboard/student_progress.html', {
+        'enrollment_data': enrollment_data,
+        'courses': courses,
+        'course_filter': course_filter,
+        'search_query': search_query,
+    })
+
+
+@staff_member_required
+def dashboard_student_detail(request, user_id, course_slug=None):
+    """Detailed student progress view"""
+    user = get_object_or_404(User, id=user_id)
+    
+    if course_slug:
+        course = get_object_or_404(Course, slug=course_slug)
+        courses = [course]
+    else:
+        # Get all courses the user is enrolled in
+        courses = Course.objects.filter(enrollments__user=user).distinct()
+    
+    course_data = []
+    for course in courses:
+        enrollment = CourseEnrollment.objects.filter(user=user, course=course).first()
+        
+        # Get all lessons with progress
+        lessons = course.lessons.order_by('order', 'id')
+        lesson_progress = []
+        
+        for lesson in lessons:
+            progress = UserProgress.objects.filter(user=user, lesson=lesson).first()
+            lesson_progress.append({
+                'lesson': lesson,
+                'progress': progress,
+                'watch_percentage': progress.video_watch_percentage if progress else 0,
+                'status': progress.status if progress else 'not_started',
+                'completed': progress.completed if progress else False,
+            })
+        
+        # Get exam attempts
+        exam_attempts = []
+        try:
+            exam = Exam.objects.get(course=course)
+            exam_attempts = ExamAttempt.objects.filter(user=user, exam=exam).order_by('-started_at')
+        except Exam.DoesNotExist:
+            pass
+        
+        # Get certification
+        try:
+            certification = Certification.objects.get(user=user, course=course)
+        except Certification.DoesNotExist:
+            certification = None
+        
+        course_data.append({
+            'course': course,
+            'enrollment': enrollment,
+            'lesson_progress': lesson_progress,
+            'exam_attempts': exam_attempts,
+            'certification': certification,
+        })
+    
+    return render(request, 'dashboard/student_detail.html', {
+        'student': user,
+        'course_data': course_data,
+    })
+
+
+@staff_member_required
+def dashboard_course_progress(request, course_slug):
+    """View all student progress for a specific course"""
+    course = get_object_or_404(Course, slug=course_slug)
+    
+    # Get all enrollments for this course
+    enrollments = CourseEnrollment.objects.filter(course=course).select_related('user')
+    
+    # Calculate progress for each student
+    student_progress = []
+    for enrollment in enrollments:
+        total_lessons = course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(
+            user=enrollment.user,
+            lesson__course=course,
+            completed=True
+        ).count()
+        
+        # Get average video watch percentage
+        avg_watch = UserProgress.objects.filter(
+            user=enrollment.user,
+            lesson__course=course
+        ).aggregate(avg=Avg('video_watch_percentage'))['avg'] or 0
+        
+        # Get exam attempts
+        exam_attempts_count = 0
+        passed_exam = False
+        try:
+            exam = Exam.objects.get(course=course)
+            exam_attempts = ExamAttempt.objects.filter(user=enrollment.user, exam=exam)
+            exam_attempts_count = exam_attempts.count()
+            passed_exam = exam_attempts.filter(passed=True).exists()
+        except Exam.DoesNotExist:
+            pass
+        
+        # Get certification status
+        try:
+            cert = Certification.objects.get(user=enrollment.user, course=course)
+            cert_status = cert.get_status_display()
+        except Certification.DoesNotExist:
+            cert_status = 'Not Eligible' if completed_lessons < total_lessons else 'Eligible'
+        
+        student_progress.append({
+            'user': enrollment.user,
+            'enrollment': enrollment,
+            'total_lessons': total_lessons,
+            'completed_lessons': completed_lessons,
+            'progress_percentage': int((completed_lessons / total_lessons * 100)) if total_lessons > 0 else 0,
+            'avg_watch_percentage': round(avg_watch, 1),
+            'exam_attempts': exam_attempts_count,
+            'passed_exam': passed_exam,
+            'cert_status': cert_status,
+        })
+    
+    # Sort by progress percentage (descending)
+    student_progress.sort(key=lambda x: x['progress_percentage'], reverse=True)
+    
+    return render(request, 'dashboard/course_progress.html', {
+        'course': course,
+        'student_progress': student_progress,
+    })
 
 
 # Helper functions (imported from views.py or defined here)

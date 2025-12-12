@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Course, Module, Lesson, UserProgress, CourseEnrollment
+from .models import Course, Module, Lesson, UserProgress, CourseEnrollment, Exam, ExamAttempt, Certification
 
 
 @admin.register(Course)
@@ -45,9 +45,10 @@ class LessonAdmin(admin.ModelAdmin):
 
 @admin.register(UserProgress)
 class UserProgressAdmin(admin.ModelAdmin):
-    list_display = ['user', 'lesson', 'completed', 'progress_percentage', 'last_accessed']
-    list_filter = ['completed', 'last_accessed']
+    list_display = ['user', 'lesson', 'status', 'completed', 'video_watch_percentage', 'progress_percentage', 'last_accessed']
+    list_filter = ['status', 'completed', 'last_accessed']
     search_fields = ['user__username', 'lesson__title']
+    readonly_fields = ['last_accessed', 'started_at', 'completed_at']
 
 
 @admin.register(CourseEnrollment)
@@ -55,3 +56,30 @@ class CourseEnrollmentAdmin(admin.ModelAdmin):
     list_display = ['user', 'course', 'payment_type', 'enrolled_at']
     list_filter = ['payment_type', 'enrolled_at']
     search_fields = ['user__username', 'course__name']
+
+
+@admin.register(Exam)
+class ExamAdmin(admin.ModelAdmin):
+    list_display = ['course', 'title', 'passing_score', 'max_attempts', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['course__name', 'title']
+
+
+@admin.register(ExamAttempt)
+class ExamAttemptAdmin(admin.ModelAdmin):
+    list_display = ['user', 'exam', 'score', 'passed', 'started_at', 'completed_at', 'attempt_number']
+    list_filter = ['passed', 'started_at', 'exam']
+    search_fields = ['user__username', 'exam__course__name']
+    readonly_fields = ['started_at', 'attempt_number']
+    
+    def attempt_number(self, obj):
+        return obj.attempt_number()
+    attempt_number.short_description = 'Attempt #'
+
+
+@admin.register(Certification)
+class CertificationAdmin(admin.ModelAdmin):
+    list_display = ['user', 'course', 'status', 'issued_at', 'accredible_certificate_id']
+    list_filter = ['status', 'issued_at']
+    search_fields = ['user__username', 'course__name', 'accredible_certificate_id']
+    readonly_fields = ['created_at', 'updated_at']

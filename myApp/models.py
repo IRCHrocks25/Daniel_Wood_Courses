@@ -98,6 +98,17 @@ class Lesson(models.Model):
     working_title = models.CharField(max_length=200, blank=True, help_text="Rough title before AI generation")
     rough_notes = models.TextField(blank=True, help_text="Optional notes or outline for AI")
     
+    # Transcription Fields
+    # Note: Video files are NOT saved to the database - they are only used temporarily for transcription
+    transcription = models.TextField(blank=True, help_text="Auto-generated transcription from video")
+    transcription_status = models.CharField(max_length=20, default='pending', choices=[
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ])
+    transcription_error = models.TextField(blank=True, help_text="Error message if transcription fails")
+    
     # AI Generated Content
     ai_generation_status = models.CharField(max_length=20, default='pending', choices=[
         ('pending', 'Pending'),
@@ -157,18 +168,48 @@ class Lesson(models.Model):
 
 
 class UserProgress(models.Model):
+    STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress')
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='user_progress')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
-    progress_percentage = models.IntegerField(default=0)
+    progress_percentage = models.IntegerField(default=0, help_text="Overall lesson progress percentage")
+    
+    # Video Watch Progress Tracking
+    video_watch_percentage = models.FloatField(default=0.0, help_text="Percentage of video watched (0-100)")
+    last_watched_timestamp = models.FloatField(default=0.0, help_text="Last timestamp in seconds where video was watched")
+    video_completion_threshold = models.FloatField(default=90.0, help_text="Required watch percentage to complete (default 90%)")
+    
     last_accessed = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ['user', 'lesson']
+        ordering = ['-last_accessed']
     
     def __str__(self):
         return f"{self.user.username} - {self.lesson.title}"
+    
+    def update_status(self):
+        """Automatically update status based on progress"""
+        if self.video_watch_percentage >= self.video_completion_threshold:
+            self.status = 'completed'
+            self.completed = True
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+        elif self.video_watch_percentage > 0:
+            self.status = 'in_progress'
+            if not self.started_at:
+                self.started_at = timezone.now()
+        else:
+            self.status = 'not_started'
+        self.save()
 
 
 class CourseEnrollment(models.Model):
@@ -191,3 +232,217 @@ class CourseEnrollment(models.Model):
             return 0
         days_elapsed = (timezone.now() - self.enrolled_at).days
         return max(0, self.course.exam_unlock_days - days_elapsed)
+    
+    def is_exam_available(self):
+        """Check if exam is available based on payment type and course completion"""
+        if self.payment_type == 'full':
+            # Check if all lessons are completed
+            total_lessons = self.course.lessons.count()
+            completed_lessons = UserProgress.objects.filter(
+                user=self.user,
+                lesson__course=self.course,
+                completed=True
+            ).count()
+            return completed_lessons >= total_lessons
+        else:
+            return self.days_until_exam() == 0
+    
+    def get_certification_status(self):
+        """Get current certification status"""
+        try:
+            cert = Certification.objects.get(user=self.user, course=self.course)
+            return cert.status
+        except Certification.DoesNotExist:
+            # Check if eligible
+            if self.is_exam_available():
+                return 'eligible'
+            return 'not_eligible'
+
+
+class Exam(models.Model):
+    """Final exam for a course"""
+    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='exam')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    passing_score = models.IntegerField(default=70, help_text="Minimum score percentage to pass")
+    max_attempts = models.IntegerField(default=3, help_text="Maximum number of attempts allowed (0 = unlimited)")
+    time_limit_minutes = models.IntegerField(null=True, blank=True, help_text="Time limit in minutes (null = no limit)")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.course.name} - {self.title}"
+
+
+class ExamAttempt(models.Model):
+    """Track individual exam attempts"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_attempts')
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='attempts')
+    score = models.FloatField(null=True, blank=True, help_text="Score percentage (0-100)")
+    passed = models.BooleanField(default=False)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    time_taken_seconds = models.IntegerField(null=True, blank=True)
+    answers = models.JSONField(default=dict, blank=True, help_text="Student's answers")
+    is_final = models.BooleanField(default=False, help_text="Whether this is the final/current attempt")
+    
+    class Meta:
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        status = "Passed" if self.passed else "Failed"
+        return f"{self.user.username} - {self.exam.course.name} - Attempt {self.attempt_number()} - {status}"
+    
+    def attempt_number(self):
+        """Get the attempt number for this user and exam"""
+        return ExamAttempt.objects.filter(
+            user=self.user,
+            exam=self.exam,
+            started_at__lte=self.started_at
+        ).count()
+
+
+class Certification(models.Model):
+    """Track certification status and Accredible integration"""
+    STATUS_CHOICES = [
+        ('not_eligible', 'Not Eligible'),
+        ('eligible', 'Eligible'),
+        ('passed', 'Passed - Certified'),
+        ('failed', 'Failed - Retry Allowed'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certifications')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certifications')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_eligible')
+    
+    # Accredible Integration
+    accredible_certificate_id = models.CharField(max_length=200, blank=True, help_text="Accredible certificate ID")
+    accredible_certificate_url = models.URLField(blank=True, help_text="Link to Accredible certificate")
+    issued_at = models.DateTimeField(null=True, blank=True)
+    
+    # Related exam attempt that resulted in certification
+    passing_exam_attempt = models.ForeignKey(
+        'ExamAttempt',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certifications'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['user', 'course']
+        ordering = ['-issued_at', '-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.get_status_display()}"
+    
+    def is_exam_available(self):
+        """Check if exam is available based on payment type and course completion"""
+        if self.payment_type == 'full':
+            # Check if all lessons are completed
+            total_lessons = self.course.lessons.count()
+            completed_lessons = UserProgress.objects.filter(
+                user=self.user,
+                lesson__course=self.course,
+                completed=True
+            ).count()
+            return completed_lessons >= total_lessons
+        else:
+            return self.days_until_exam() == 0
+    
+    def get_certification_status(self):
+        """Get current certification status"""
+        try:
+            cert = Certification.objects.get(user=self.user, course=self.course)
+            return cert.status
+        except Certification.DoesNotExist:
+            # Check if eligible
+            if self.is_exam_available():
+                return 'eligible'
+            return 'not_eligible'
+
+
+class Exam(models.Model):
+    """Final exam for a course"""
+    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='exam')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    passing_score = models.IntegerField(default=70, help_text="Minimum score percentage to pass")
+    max_attempts = models.IntegerField(default=3, help_text="Maximum number of attempts allowed (0 = unlimited)")
+    time_limit_minutes = models.IntegerField(null=True, blank=True, help_text="Time limit in minutes (null = no limit)")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.course.name} - {self.title}"
+
+
+class ExamAttempt(models.Model):
+    """Track individual exam attempts"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_attempts')
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='attempts')
+    score = models.FloatField(null=True, blank=True, help_text="Score percentage (0-100)")
+    passed = models.BooleanField(default=False)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    time_taken_seconds = models.IntegerField(null=True, blank=True)
+    answers = models.JSONField(default=dict, blank=True, help_text="Student's answers")
+    is_final = models.BooleanField(default=False, help_text="Whether this is the final/current attempt")
+    
+    class Meta:
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        status = "Passed" if self.passed else "Failed"
+        return f"{self.user.username} - {self.exam.course.name} - Attempt {self.attempt_number()} - {status}"
+    
+    def attempt_number(self):
+        """Get the attempt number for this user and exam"""
+        return ExamAttempt.objects.filter(
+            user=self.user,
+            exam=self.exam,
+            started_at__lte=self.started_at
+        ).count()
+
+
+class Certification(models.Model):
+    """Track certification status and Accredible integration"""
+    STATUS_CHOICES = [
+        ('not_eligible', 'Not Eligible'),
+        ('eligible', 'Eligible'),
+        ('passed', 'Passed - Certified'),
+        ('failed', 'Failed - Retry Allowed'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certifications')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certifications')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_eligible')
+    
+    # Accredible Integration
+    accredible_certificate_id = models.CharField(max_length=200, blank=True, help_text="Accredible certificate ID")
+    accredible_certificate_url = models.URLField(blank=True, help_text="Link to Accredible certificate")
+    issued_at = models.DateTimeField(null=True, blank=True)
+    
+    # Related exam attempt that resulted in certification
+    passing_exam_attempt = models.ForeignKey(
+        'ExamAttempt',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certifications'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['user', 'course']
+        ordering = ['-issued_at', '-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.get_status_display()}"

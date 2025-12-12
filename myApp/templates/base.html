@@ -40,26 +40,6 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        
-        /* Premium hover effects */
-        @media (hover: hover) {
-            .coach-card-btn:hover {
-                transform: translateY(-1px);
-            }
-        }
-        
-        /* Smooth transitions */
-        * {
-            transition-property: color, background-color, border-color, transform, box-shadow;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        /* Mobile optimizations */
-        @media (max-width: 1024px) {
-            .lg\:sticky {
-                position: relative;
-            }
-        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-[#0a0e27] via-[#1a1f3a] to-[#000000] min-h-screen text-white">
@@ -81,18 +61,21 @@
             <div class="flex items-center gap-8">
                 <a href="{% url 'home' %}" class="text-sm font-medium hover:text-cyan-electric transition-colors">Home</a>
                 <a href="{% url 'courses' %}" class="text-sm font-medium hover:text-cyan-electric transition-colors">Courses</a>
-                <a href="#" class="text-sm font-medium hover:text-cyan-electric transition-colors">AI Tools</a>
-                <a href="#" class="text-sm font-medium hover:text-cyan-electric transition-colors">Account</a>
-                <button class="px-4 py-2 rounded-full border border-cyan-electric/30 text-sm font-medium hover:bg-cyan-electric/10 hover:border-cyan-electric/50 transition-all">Log Out</button>
+                {% if user.is_authenticated %}
+                <a href="{% url 'student_dashboard' %}" class="text-sm font-medium hover:text-cyan-electric transition-colors">My Dashboard</a>
+                <a href="{% url 'student_certifications' %}" class="text-sm font-medium hover:text-cyan-electric transition-colors">Certifications</a>
+                {% endif %}
+                {% if user.is_staff %}
+                <a href="{% url 'dashboard_home' %}" class="text-sm font-medium hover:text-cyan-electric transition-colors">Admin</a>
+                {% endif %}
+                <a href="{% url 'logout' %}" class="px-4 py-2 rounded-full border border-cyan-electric/30 text-sm font-medium hover:bg-cyan-electric/10 hover:border-cyan-electric/50 transition-all">Log Out</a>
             </div>
         </div>
     </nav>
     
     <!-- Main Content -->
-    <main class="w-full py-12 overflow-x-hidden">
-        <div class="max-w-[1400px] mx-auto px-6">
-            {% block content %}{% endblock %}
-        </div>
+    <main class="max-w-[1200px] mx-auto px-6 py-12">
+        {% block content %}{% endblock %}
     </main>
     
     <!-- JavaScript -->
@@ -100,4 +83,3 @@
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-

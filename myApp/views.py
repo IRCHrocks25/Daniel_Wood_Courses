@@ -1,17 +1,57 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
+from django.conf import settings
+from datetime import datetime
 import json
 import re
 import requests
-from .models import Course, Lesson, Module, UserProgress, CourseEnrollment
+import os
+import threading
+from .models import Course, Lesson, Module, UserProgress, CourseEnrollment, Exam, ExamAttempt, Certification
+from django.db.models import Avg, Count, Q
+from django.db import models
+from .utils.transcription import transcribe_video
 
 
 def home(request):
-    """Home page view"""
-    return render(request, 'home.html')
+    """Home page view - shows landing page for non-authenticated, redirects authenticated users"""
+    if request.user.is_authenticated:
+        return redirect('courses')
+    return render(request, 'landing.html')
+
+
+def login_view(request):
+    """Premium login page"""
+    # Allow access to login page even when logged in if ?force=true (for testing)
+    force = request.GET.get('force', '').lower() == 'true'
+    if request.user.is_authenticated and not force:
+        return redirect('home')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            next_url = request.GET.get('next', 'home')
+            return redirect(next_url)
+        else:
+            messages.error(request, 'Invalid username or password.')
+    
+    return render(request, 'login.html')
+
+
+def logout_view(request):
+    """Logout view"""
+    logout(request)
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('login')
 
 
 def courses(request):
@@ -55,31 +95,87 @@ def lesson_detail(request, course_slug, lesson_slug):
     lesson = get_object_or_404(Lesson, course=course, slug=lesson_slug)
     
     # Get user progress
-    progress_percentage = 0
-    completed_lessons = []
-    enrollment = None
+    enrollment = CourseEnrollment.objects.filter(
+        user=request.user, 
+        course=course
+    ).first()
     
-    if request.user.is_authenticated:
-        enrollment = CourseEnrollment.objects.filter(
-            user=request.user, 
-            course=course
-        ).first()
+    progress_percentage = course.get_user_progress(request.user)
+    completed_lessons = list(
+        UserProgress.objects.filter(
+            user=request.user,
+            lesson__course=course,
+            completed=True
+        ).values_list('lesson_id', flat=True)
+    )
+    
+    # Get current lesson progress
+    current_lesson_progress = UserProgress.objects.filter(
+        user=request.user,
+        lesson=lesson
+    ).first()
+    
+    video_watch_percentage = current_lesson_progress.video_watch_percentage if current_lesson_progress else 0.0
+    last_watched_timestamp = current_lesson_progress.last_watched_timestamp if current_lesson_progress else 0.0
+    lesson_status = current_lesson_progress.status if current_lesson_progress else 'not_started'
+    
+    # Get all lessons ordered by order field
+    all_lessons = course.lessons.order_by('order', 'id')
+    
+    # Determine which lessons are accessible
+    accessible_lessons = []
+    # First lesson is always accessible
+    if all_lessons.exists():
+        first_lesson = all_lessons.first()
+        accessible_lessons.append(first_lesson.id)
         
-        progress_percentage = course.get_user_progress(request.user)
-        completed_lessons = list(
-            UserProgress.objects.filter(
-                user=request.user,
-                lesson__course=course,
-                completed=True
-            ).values_list('lesson_id', flat=True)
-        )
+        # For each subsequent lesson, check if all previous lessons are completed
+        for current_lesson in all_lessons[1:]:
+            # Get all previous lessons (with lower order or same order but lower id)
+            previous_lessons = all_lessons.filter(
+                models.Q(order__lt=current_lesson.order) |
+                models.Q(order=current_lesson.order, id__lt=current_lesson.id)
+            )
+            
+            # Check if all previous lessons are completed
+            all_previous_completed = True
+            for prev_lesson in previous_lessons:
+                if prev_lesson.id not in completed_lessons:
+                    all_previous_completed = False
+                    break
+            
+            if all_previous_completed:
+                accessible_lessons.append(current_lesson.id)
+        
+        # Check if current lesson is locked
+        lesson_locked = lesson.id not in accessible_lessons
+        
+        # If lesson is locked, redirect to first incomplete lesson or show message
+        if lesson_locked:
+            # Find first incomplete lesson
+            first_incomplete = None
+            for l in all_lessons:
+                if l.id not in completed_lessons:
+                    first_incomplete = l
+                    break
+            
+            if first_incomplete:
+                messages.warning(request, 'Please complete previous lessons before accessing this one.')
+                return redirect('lesson_detail', course_slug=course_slug, lesson_slug=first_incomplete.slug)
+            else:
+                messages.info(request, 'All lessons completed!')
     
     return render(request, 'lesson.html', {
         'course': course,
         'lesson': lesson,
         'progress_percentage': progress_percentage,
         'completed_lessons': completed_lessons,
+        'accessible_lessons': accessible_lessons,
         'enrollment': enrollment,
+        'current_lesson_progress': current_lesson_progress,
+        'video_watch_percentage': video_watch_percentage,
+        'last_watched_timestamp': last_watched_timestamp,
+        'lesson_status': lesson_status,
     })
 
 
@@ -110,7 +206,7 @@ def course_lessons(request, course_slug):
 
 @staff_member_required
 def add_lesson(request, course_slug):
-    """Add new lesson - 3-step flow"""
+    """Add new lesson - 3-step flow with video upload and transcription"""
     course = get_object_or_404(Course, slug=course_slug)
     
     if request.method == 'POST':
@@ -118,30 +214,79 @@ def add_lesson(request, course_slug):
         vimeo_url = request.POST.get('vimeo_url', '')
         working_title = request.POST.get('working_title', '')
         rough_notes = request.POST.get('rough_notes', '')
+        transcription = request.POST.get('transcription', '')
         
         # Extract Vimeo ID
-        vimeo_id = extract_vimeo_id(vimeo_url)
+        vimeo_id = extract_vimeo_id(vimeo_url) if vimeo_url else None
         
+        # Create lesson draft
+        lesson = Lesson.objects.create(
+            course=course,
+            working_title=working_title,
+            rough_notes=rough_notes,
+            title=working_title,  # Temporary
+            slug=generate_slug(working_title),
+            description='',  # Will be AI-generated
+        )
+        
+        # Handle Vimeo URL if provided
         if vimeo_id:
-            # Fetch Vimeo metadata
             vimeo_data = fetch_vimeo_metadata(vimeo_id)
+            lesson.vimeo_url = vimeo_url
+            lesson.vimeo_id = vimeo_id
+            lesson.vimeo_thumbnail = vimeo_data.get('thumbnail', '')
+            lesson.vimeo_duration_seconds = vimeo_data.get('duration', 0)
+            lesson.video_duration = vimeo_data.get('duration', 0) // 60
+        
+        # Handle video file upload and transcription (temporary - not saved)
+        if 'video_file' in request.FILES:
+            video_file = request.FILES['video_file']
+            # Don't save video_file to lesson - only use for transcription
+            lesson.transcription_status = 'processing'
+            lesson.save()
             
-            # Create lesson draft
-            lesson = Lesson.objects.create(
-                course=course,
-                working_title=working_title,
-                rough_notes=rough_notes,
-                vimeo_url=vimeo_url,
-                vimeo_id=vimeo_id,
-                vimeo_thumbnail=vimeo_data.get('thumbnail', ''),
-                vimeo_duration_seconds=vimeo_data.get('duration', 0),
-                video_duration=vimeo_data.get('duration', 0) // 60,
-                title=working_title,  # Temporary
-                slug=generate_slug(working_title),
-                description='',  # Will be AI-generated
-            )
+            # Start transcription in background (video will be deleted after)
+            def process_transcription():
+                import tempfile
+                temp_path = None
+                try:
+                    # Save to temporary file (not in media folder)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+                        for chunk in video_file.chunks():
+                            temp_file.write(chunk)
+                        temp_path = temp_file.name
+                    
+                    # Transcribe from temporary file
+                    result = transcribe_video(temp_path)
+                    
+                    # Update lesson with transcription
+                    lesson.transcription_status = 'completed' if result['success'] else 'failed'
+                    lesson.transcription = result.get('transcription', '')
+                    lesson.transcription_error = result.get('error', '')
+                    lesson.save()
+                except Exception as e:
+                    lesson.transcription_status = 'failed'
+                    lesson.transcription_error = str(e)
+                    lesson.save()
+                finally:
+                    # Always delete temporary video file
+                    if temp_path and os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except:
+                            pass
             
-            return redirect('generate_lesson_ai', course_slug=course_slug, lesson_id=lesson.id)
+            # Run transcription in background thread
+            thread = threading.Thread(target=process_transcription)
+            thread.daemon = True
+            thread.start()
+        elif transcription:
+            # If transcription was manually edited, save it
+            lesson.transcription = transcription
+            lesson.transcription_status = 'completed'
+        
+        lesson.save()
+        return redirect('generate_lesson_ai', course_slug=course_slug, lesson_id=lesson.id)
     
     return render(request, 'creator/add_lesson.html', {
         'course': course,
@@ -226,6 +371,90 @@ def verify_vimeo_url(request):
     return JsonResponse({
         'success': False,
         'error': 'Could not fetch video metadata'
+    })
+
+
+@require_http_methods(["POST"])
+@staff_member_required
+def upload_video_transcribe(request):
+    """AJAX endpoint to upload video and start transcription - video is NOT saved, only used temporarily"""
+    if 'video_file' not in request.FILES:
+        return JsonResponse({
+            'success': False,
+            'error': 'No video file provided'
+        })
+    
+    video_file = request.FILES['video_file']
+    
+    # Validate file type
+    if not video_file.name.lower().endswith('.mp4'):
+        return JsonResponse({
+            'success': False,
+            'error': 'Please upload an MP4 video file'
+        })
+    
+    # Validate file size (500MB limit)
+    if video_file.size > 500 * 1024 * 1024:
+        return JsonResponse({
+            'success': False,
+            'error': 'File size exceeds 500MB limit'
+        })
+    
+    # Use system temp directory (not media folder) - will be deleted after transcription
+    import tempfile
+    temp_path = None
+    
+    try:
+        # Save to system temporary file (outside media folder)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+            for chunk in video_file.chunks():
+                temp_file.write(chunk)
+            temp_path = temp_file.name
+        
+        # Transcribe from temporary file
+        result = transcribe_video(temp_path)
+        
+        # Always delete temporary video file (we don't save videos)
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'transcription': result['transcription'],
+                'status': 'completed'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Transcription failed')
+            })
+    except Exception as e:
+        # Clean up temp file on error
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@require_http_methods(["POST"])
+@staff_member_required
+def check_transcription_status(request, lesson_id):
+    """AJAX endpoint to check transcription status"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    
+    return JsonResponse({
+        'status': lesson.transcription_status,
+        'transcription': lesson.transcription,
+        'error': lesson.transcription_error
     })
 
 
@@ -331,3 +560,313 @@ def format_duration(seconds):
     minutes = seconds // 60
     secs = seconds % 60
     return f"{minutes}:{secs:02d}"
+
+
+# ========== CHATBOT WEBHOOK ==========
+
+@require_http_methods(["POST"])
+@login_required
+def update_video_progress(request, lesson_id):
+    """Update video watch progress for a lesson"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    
+    try:
+        data = json.loads(request.body)
+        watch_percentage = float(data.get('watch_percentage', 0))
+        timestamp = float(data.get('timestamp', 0))
+        
+        # Get or create UserProgress
+        user_progress, created = UserProgress.objects.get_or_create(
+            user=request.user,
+            lesson=lesson,
+            defaults={
+                'video_watch_percentage': watch_percentage,
+                'last_watched_timestamp': timestamp,
+                'progress_percentage': int(watch_percentage)
+            }
+        )
+        
+        # Update progress
+        if not created:
+            user_progress.video_watch_percentage = watch_percentage
+            user_progress.last_watched_timestamp = timestamp
+            user_progress.progress_percentage = int(watch_percentage)
+        
+        # Auto-update status based on watch progress
+        user_progress.update_status()
+        
+        return JsonResponse({
+            'success': True,
+            'watch_percentage': user_progress.video_watch_percentage,
+            'status': user_progress.status,
+            'completed': user_progress.completed
+        })
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        return JsonResponse({'error': f'Invalid data: {str(e)}'}, status=400)
+
+
+@require_http_methods(["POST"])
+@login_required
+def complete_lesson(request, lesson_id):
+    """Mark a lesson as complete for the current user (requires video watch threshold)"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    
+    # Get or create UserProgress
+    user_progress, created = UserProgress.objects.get_or_create(
+        user=request.user,
+        lesson=lesson
+    )
+    
+    # Check if video watch threshold is met
+    if user_progress.video_watch_percentage < user_progress.video_completion_threshold:
+        return JsonResponse({
+            'success': False,
+            'error': f'Please watch at least {user_progress.video_completion_threshold}% of the video to complete this lesson.',
+            'current_watch_percentage': user_progress.video_watch_percentage,
+            'required_percentage': user_progress.video_completion_threshold
+        }, status=400)
+    
+    # Mark as completed
+    user_progress.completed = True
+    user_progress.status = 'completed'
+    user_progress.completed_at = datetime.now()
+    user_progress.progress_percentage = 100
+    user_progress.save()
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Lesson marked as complete',
+        'lesson_id': lesson_id
+    })
+
+
+@require_http_methods(["POST"])
+@login_required
+def chatbot_webhook(request):
+    """Forward chatbot messages to the appropriate webhook based on lesson"""
+    # Default webhook URL
+    DEFAULT_WEBHOOK_URL = "https://kane-course-website.fly.dev/webhook/12e91cca-0e58-4769-9f11-68399ec2f970"
+    
+    # Lesson-specific webhook URLs
+    LESSON_WEBHOOKS = {
+        2: "https://kane-course-website.fly.dev/webhook/7d81ca5f-0033-4a9c-8b75-ae44005f8451",
+        3: "https://kane-course-website.fly.dev/webhook/8efc5c79-9c73-4cd5-b00f-361291f983d9",
+        4: "https://kane-course-website.fly.dev/webhook/19fd5879-7fc0-437d-9953-65bb70526c0b",
+        5: "https://kane-course-website.fly.dev/webhook/bab1f0ef-b5bc-415f-8f73-88cc31c5c75a",
+        6: "https://kane-course-website.fly.dev/webhook/6ed2483b-9c8d-4c20-85e4-432fbf033ad8",
+        7: "https://kane-course-website.fly.dev/webhook/400f7a4d-3731-4ed0-90f1-35157579c7b0",
+        8: "https://kane-course-website.fly.dev/webhook/0b6fee4a-bb9a-46da-831c-7d20ec7dd627",
+        9: "https://kane-course-website.fly.dev/webhook/4c79ba33-2660-4816-9526-8e3513aad427",
+        10: "https://kane-course-website.fly.dev/webhook/0373896c-d889-4f72-ba42-83ad6857a5e1",
+        11: "https://kane-course-website.fly.dev/webhook/a571ba83-d96d-46c0-a88c-71416eda82a3",
+        12: "https://kane-course-website.fly.dev/webhook/97427f57-0e89-4da3-846a-1e4453f8a58c",
+    }
+    
+    try:
+        # Get the request data
+        data = json.loads(request.body)
+        
+        # Determine which webhook URL to use based on lesson_id
+        lesson_id = data.get('lesson_id')
+        webhook_url = LESSON_WEBHOOKS.get(lesson_id, DEFAULT_WEBHOOK_URL)
+        
+        # Forward to the webhook
+        response = requests.post(
+            webhook_url,
+            json=data,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
+        
+        # Return the response from the webhook
+        return JsonResponse(
+            response.json() if response.status_code == 200 else {'error': 'Webhook request failed'},
+            status=response.status_code
+        )
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except requests.RequestException as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ========== STUDENT DASHBOARD (CLIENT VIEW) ==========
+
+@login_required
+def student_dashboard(request):
+    """Student dashboard - overview of all enrolled courses and progress"""
+    user = request.user
+    
+    # Get all enrollments
+    enrollments = CourseEnrollment.objects.filter(user=user).select_related('course')
+    
+    course_data = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        
+        # Calculate progress
+        total_lessons = course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(
+            user=user,
+            lesson__course=course,
+            completed=True
+        ).count()
+        
+        progress_percentage = int((completed_lessons / total_lessons * 100)) if total_lessons > 0 else 0
+        
+        # Get average video watch percentage
+        avg_watch = UserProgress.objects.filter(
+            user=user,
+            lesson__course=course
+        ).aggregate(avg=Avg('video_watch_percentage'))['avg'] or 0
+        
+        # Get exam info
+        exam_info = None
+        try:
+            exam = Exam.objects.get(course=course)
+            exam_attempts = ExamAttempt.objects.filter(user=user, exam=exam).order_by('-started_at')
+            latest_attempt = exam_attempts.first()
+            exam_info = {
+                'exists': True,
+                'attempts_count': exam_attempts.count(),
+                'max_attempts': exam.max_attempts,
+                'latest_attempt': latest_attempt,
+                'passed': exam_attempts.filter(passed=True).exists(),
+                'is_available': enrollment.is_exam_available(),
+            }
+        except Exam.DoesNotExist:
+            exam_info = {'exists': False}
+        
+        # Get certification status
+        try:
+            certification = Certification.objects.get(user=user, course=course)
+            cert_status = certification.status
+            cert_display = certification.get_status_display()
+        except Certification.DoesNotExist:
+            cert_status = 'not_eligible' if progress_percentage < 100 else 'eligible'
+            cert_display = 'Not Eligible' if progress_percentage < 100 else 'Eligible'
+            certification = None
+        
+        course_data.append({
+            'course': course,
+            'enrollment': enrollment,
+            'total_lessons': total_lessons,
+            'completed_lessons': completed_lessons,
+            'progress_percentage': progress_percentage,
+            'avg_watch_percentage': round(avg_watch, 1),
+            'exam_info': exam_info,
+            'certification': certification,
+            'cert_status': cert_status,
+            'cert_display': cert_display,
+        })
+    
+    # Sort by progress (descending)
+    course_data.sort(key=lambda x: x['progress_percentage'], reverse=True)
+    
+    # Overall stats
+    total_courses = len(course_data)
+    completed_courses = sum(1 for c in course_data if c['progress_percentage'] == 100)
+    total_lessons_all = sum(c['total_lessons'] for c in course_data)
+    completed_lessons_all = sum(c['completed_lessons'] for c in course_data)
+    overall_progress = int((completed_lessons_all / total_lessons_all * 100)) if total_lessons_all > 0 else 0
+    
+    return render(request, 'student/dashboard.html', {
+        'course_data': course_data,
+        'total_courses': total_courses,
+        'completed_courses': completed_courses,
+        'total_lessons_all': total_lessons_all,
+        'completed_lessons_all': completed_lessons_all,
+        'overall_progress': overall_progress,
+    })
+
+
+@login_required
+def student_course_progress(request, course_slug):
+    """Detailed progress view for a specific course"""
+    course = get_object_or_404(Course, slug=course_slug)
+    user = request.user
+    
+    # Check enrollment
+    enrollment = CourseEnrollment.objects.filter(user=user, course=course).first()
+    if not enrollment:
+        messages.error(request, 'You are not enrolled in this course.')
+        return redirect('student_dashboard')
+    
+    # Get all lessons with progress
+    lessons = course.lessons.order_by('order', 'id')
+    lesson_progress = []
+    
+    for lesson in lessons:
+        progress = UserProgress.objects.filter(user=user, lesson=lesson).first()
+        lesson_progress.append({
+            'lesson': lesson,
+            'progress': progress,
+            'watch_percentage': progress.video_watch_percentage if progress else 0,
+            'status': progress.status if progress else 'not_started',
+            'completed': progress.completed if progress else False,
+            'last_accessed': progress.last_accessed if progress else None,
+        })
+    
+    # Calculate overall progress
+    total_lessons = len(lessons)
+    completed_lessons = sum(1 for lp in lesson_progress if lp['completed'])
+    progress_percentage = int((completed_lessons / total_lessons * 100)) if total_lessons > 0 else 0
+    
+    # Get exam info
+    exam = None
+    exam_attempts = []
+    try:
+        exam = Exam.objects.get(course=course)
+        exam_attempts = ExamAttempt.objects.filter(user=user, exam=exam).order_by('-started_at')
+    except Exam.DoesNotExist:
+        pass
+    
+    # Get certification
+    try:
+        certification = Certification.objects.get(user=user, course=course)
+    except Certification.DoesNotExist:
+        certification = None
+    
+    return render(request, 'student/course_progress.html', {
+        'course': course,
+        'enrollment': enrollment,
+        'lesson_progress': lesson_progress,
+        'total_lessons': total_lessons,
+        'completed_lessons': completed_lessons,
+        'progress_percentage': progress_percentage,
+        'exam': exam,
+        'exam_attempts': exam_attempts,
+        'certification': certification,
+        'is_exam_available': enrollment.is_exam_available(),
+    })
+
+
+@login_required
+def student_certifications(request):
+    """View all certifications"""
+    user = request.user
+    
+    certifications = Certification.objects.filter(user=user).select_related('course').order_by('-issued_at', '-created_at')
+    
+    # Get eligible courses (completed but no certification yet)
+    enrollments = CourseEnrollment.objects.filter(user=user).select_related('course')
+    eligible_courses = []
+    
+    for enrollment in enrollments:
+        total_lessons = enrollment.course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(
+            user=user,
+            lesson__course=enrollment.course,
+            completed=True
+        ).count()
+        
+        if completed_lessons >= total_lessons and total_lessons > 0:
+            # Check if certification exists
+            if not Certification.objects.filter(user=user, course=enrollment.course).exists():
+                eligible_courses.append(enrollment.course)
+    
+    return render(request, 'student/certifications.html', {
+        'certifications': certifications,
+        'eligible_courses': eligible_courses,
+    })
