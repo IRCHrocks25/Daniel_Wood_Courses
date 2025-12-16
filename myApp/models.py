@@ -31,6 +31,38 @@ class Course(models.Model):
     has_asset_templates = models.BooleanField(default=False)
     exam_unlock_days = models.IntegerField(default=120, help_text="Days after enrollment before exam unlocks")
     special_tag = models.CharField(max_length=100, blank=True, help_text="e.g., 'Black Friday 2025 Special'")
+    
+    # Course Availability & Access Rules
+    VISIBILITY_CHOICES = [
+        ('public', 'Public (visible to anyone)'),
+        ('members_only', 'Members Only (visible to logged-in users)'),
+        ('hidden', 'Hidden (not in catalog, direct link only)'),
+        ('private', 'Private (manual assignment only)'),
+    ]
+    
+    ENROLLMENT_METHOD_CHOICES = [
+        ('open', 'Open Enrollment (free/lead magnet)'),
+        ('purchase', 'Purchase Required'),
+        ('invite_only', 'Invite/Assigned Only'),
+        ('cohort_only', 'Cohort Only'),
+        ('subscription_only', 'Subscription Only'),
+    ]
+    
+    ACCESS_DURATION_CHOICES = [
+        ('lifetime', 'Lifetime Access'),
+        ('fixed_days', 'Fixed Duration (days)'),
+        ('until_date', 'Access Until Date'),
+        ('drip', 'Drip Schedule'),
+    ]
+    
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='public', help_text="Who can see this course exists")
+    enrollment_method = models.CharField(max_length=20, choices=ENROLLMENT_METHOD_CHOICES, default='open', help_text="How students get access")
+    access_duration_type = models.CharField(max_length=20, choices=ACCESS_DURATION_CHOICES, default='lifetime', help_text="Access duration rule")
+    access_duration_days = models.IntegerField(null=True, blank=True, help_text="Fixed duration in days (if access_duration_type='fixed_days')")
+    access_until_date = models.DateTimeField(null=True, blank=True, help_text="Access expires on this date (if access_duration_type='until_date')")
+    prerequisite_courses = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='unlocks_courses', help_text="Courses that must be completed first")
+    required_quiz_score = models.IntegerField(null=True, blank=True, help_text="Required quiz score to unlock (0-100)")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -172,7 +204,7 @@ class LessonQuiz(models.Model):
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE, related_name='quiz')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    is_required = models.BooleanField(default=False, help_text="If true, quiz is recommended after the lesson.")
+    is_required = models.BooleanField(default=True, help_text="If true, quiz must be passed to complete the lesson.")
     passing_score = models.IntegerField(default=70, help_text="Score percentage required to pass (0–100)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -396,110 +428,225 @@ class Certification(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.course.name} - {self.get_status_display()}"
-    
-    def is_exam_available(self):
-        """Check if exam is available based on payment type and course completion"""
-        if self.payment_type == 'full':
-            # Check if all lessons are completed
-            total_lessons = self.course.lessons.count()
-            completed_lessons = UserProgress.objects.filter(
-                user=self.user,
-                lesson__course=self.course,
-                completed=True
-            ).count()
-            return completed_lessons >= total_lessons
-        else:
-            return self.days_until_exam() == 0
-    
-    def get_certification_status(self):
-        """Get current certification status"""
-        try:
-            cert = Certification.objects.get(user=self.user, course=self.course)
-            return cert.status
-        except Certification.DoesNotExist:
-            # Check if eligible
-            if self.is_exam_available():
-                return 'eligible'
-            return 'not_eligible'
 
+# ========== ACCESS CONTROL SYSTEM ==========
 
-class Exam(models.Model):
-    """Final exam for a course"""
-    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='exam')
-    title = models.CharField(max_length=200)
+class Cohort(models.Model):
+    """Groups of students (e.g., 'Black Friday 2025 Buyers', 'VIP Mastermind')"""
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
-    passing_score = models.IntegerField(default=70, help_text="Minimum score percentage to pass")
-    max_attempts = models.IntegerField(default=3, help_text="Maximum number of attempts allowed (0 = unlimited)")
-    time_limit_minutes = models.IntegerField(null=True, blank=True, help_text="Time limit in minutes (null = no limit)")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    def __str__(self):
-        return f"{self.course.name} - {self.title}"
-
-
-class ExamAttempt(models.Model):
-    """Track individual exam attempts"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_attempts')
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='attempts')
-    score = models.FloatField(null=True, blank=True, help_text="Score percentage (0-100)")
-    passed = models.BooleanField(default=False)
-    started_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    time_taken_seconds = models.IntegerField(null=True, blank=True)
-    answers = models.JSONField(default=dict, blank=True, help_text="Student's answers")
-    is_final = models.BooleanField(default=False, help_text="Whether this is the final/current attempt")
-    
     class Meta:
-        ordering = ['-started_at']
+        ordering = ['-created_at']
     
     def __str__(self):
-        status = "Passed" if self.passed else "Failed"
-        return f"{self.user.username} - {self.exam.course.name} - Attempt {self.attempt_number()} - {status}"
+        return self.name
     
-    def attempt_number(self):
-        """Get the attempt number for this user and exam"""
-        return ExamAttempt.objects.filter(
-            user=self.user,
-            exam=self.exam,
-            started_at__lte=self.started_at
-        ).count()
+    def get_member_count(self):
+        return self.members.count()
+# ========== ACCESS CONTROL SYSTEM ==========
 
-
-class Certification(models.Model):
-    """Track certification status and Accredible integration"""
-    STATUS_CHOICES = [
-        ('not_eligible', 'Not Eligible'),
-        ('eligible', 'Eligible'),
-        ('passed', 'Passed - Certified'),
-        ('failed', 'Failed - Retry Allowed'),
-    ]
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certifications')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certifications')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_eligible')
-    
-    # Accredible Integration
-    accredible_certificate_id = models.CharField(max_length=200, blank=True, help_text="Accredible certificate ID")
-    accredible_certificate_url = models.URLField(blank=True, help_text="Link to Accredible certificate")
-    issued_at = models.DateTimeField(null=True, blank=True)
-    
-    # Related exam attempt that resulted in certification
-    passing_exam_attempt = models.ForeignKey(
-        'ExamAttempt',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='certifications'
-    )
-    
+class Cohort(models.Model):
+    """Groups of students (e.g., 'Black Friday 2025 Buyers', 'VIP Mastermind')"""
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['user', 'course']
-        ordering = ['-issued_at', '-created_at']
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.user.username} - {self.course.name} - {self.get_status_display()}"
+        return self.name
+    
+    def get_member_count(self):
+        return self.members.count()
+
+
+class Bundle(models.Model):
+    """Product/Bundle that grants access to multiple courses"""
+    BUNDLE_TYPES = [
+        ('fixed', 'Fixed Bundle (curated set)'),
+        ('pick_your_own', 'Pick Your Own (choose N courses)'),
+        ('tiered', 'Tiered (Bronze/Silver/Gold)'),
+    ]
+    
+    name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True)
+    bundle_type = models.CharField(max_length=20, choices=BUNDLE_TYPES, default='fixed')
+    courses = models.ManyToManyField(Course, related_name='bundles', blank=True)
+    max_course_selections = models.IntegerField(null=True, blank=True, help_text="For pick-your-own bundles")
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return self.name
+
+
+class BundlePurchase(models.Model):
+    """Track bundle purchases"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bundle_purchases')
+    bundle = models.ForeignKey(Bundle, on_delete=models.CASCADE, related_name='purchases')
+    purchase_id = models.CharField(max_length=200, blank=True, help_text="External purchase/order ID")
+    purchase_date = models.DateTimeField(auto_now_add=True)
+    selected_courses = models.ManyToManyField(Course, blank=True, help_text="For pick-your-own bundles")
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-purchase_date']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.bundle.name}"
+
+
+class CourseAccess(models.Model):
+    """Explicit access record - 'Access is a thing, not a side effect'"""
+    ACCESS_TYPES = [
+        ('purchase', 'Purchase'),
+        ('manual', 'Manual (Admin-granted)'),
+        ('cohort', 'Cohort/Group'),
+        ('subscription', 'Subscription/Membership'),
+        ('bundle', 'Bundle Purchase'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('unlocked', 'Unlocked (Active)'),
+        ('locked', 'Locked'),
+        ('revoked', 'Revoked'),
+        ('expired', 'Expired'),
+        ('pending', 'Pending'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_accesses')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='accesses')
+    access_type = models.CharField(max_length=20, choices=ACCESS_TYPES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unlocked')
+    
+    # Source tracking
+    bundle_purchase = models.ForeignKey(
+        BundlePurchase, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='granted_accesses'
+    )
+    cohort = models.ForeignKey(
+        Cohort,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='granted_accesses'
+    )
+    purchase_id = models.CharField(max_length=200, blank=True, help_text="External purchase ID")
+    
+    # Dates
+    granted_at = models.DateTimeField(auto_now_add=True)
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='granted_accesses',
+        help_text="Admin who granted access (for manual access)"
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='revoked_accesses',
+        help_text="Admin who revoked access"
+    )
+    revocation_reason = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True, help_text="Support notes, audit trail")
+    
+    class Meta:
+        ordering = ['-granted_at']
+        indexes = [
+            models.Index(fields=['user', 'course', 'status']),
+            models.Index(fields=['status', 'expires_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.get_access_type_display()}"
+    
+    def is_active(self):
+        """Check if access is currently active"""
+        if self.status != 'unlocked':
+            return False
+        if self.expires_at and timezone.now() > self.expires_at:
+            return False
+        return True
+    
+    def get_source_display(self):
+        """Get human-readable source of access"""
+        if self.bundle_purchase:
+            return f"Bundle: {self.bundle_purchase.bundle.name}"
+        elif self.cohort:
+            return f"Cohort: {self.cohort.name}"
+        elif self.access_type == 'manual':
+            return f"Manual (by {self.granted_by.username if self.granted_by else 'Admin'})"
+        elif self.purchase_id:
+            return f"Purchase: {self.purchase_id}"
+        return self.get_access_type_display()
+
+
+class CohortMember(models.Model):
+    """Link users to cohorts"""
+    cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cohorts')
+    joined_at = models.DateTimeField(auto_now_add=True)
+    remove_access_on_leave = models.BooleanField(
+        default=True,
+        help_text="If True, removing from cohort revokes access. If False, access persists."
+    )
+    
+    class Meta:
+        unique_together = ['cohort', 'user']
+        ordering = ['-joined_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.cohort.name}"
+
+
+class LearningPath(models.Model):
+    """Curated learning journeys (e.g., '7-Figure Launch Path')"""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    courses = models.ManyToManyField(Course, through='LearningPathCourse', related_name='learning_paths')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
+class LearningPathCourse(models.Model):
+    """Ordered courses in a learning path"""
+    learning_path = models.ForeignKey(LearningPath, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    order = models.IntegerField(default=0)
+    is_required = models.BooleanField(default=True, help_text="Must complete to unlock next")
+    
+    class Meta:
+        ordering = ['order']
+        unique_together = ['learning_path', 'course']
+    
+    def __str__(self):
+        return f"{self.learning_path.name} - {self.course.name} (#{self.order})"
+

@@ -43,6 +43,14 @@ urlpatterns = [
     path('dashboard/students/<int:user_id>/<slug:course_slug>/', dashboard_views.dashboard_student_detail, name='dashboard_student_detail_course'),
     path('dashboard/courses/<slug:course_slug>/progress/', dashboard_views.dashboard_course_progress, name='dashboard_course_progress'),
     
+    # Access Management
+    path('dashboard/access/bulk/', dashboard_views.bulk_access_management, name='dashboard_bulk_access'),
+    path('dashboard/access/bulk/grant/', dashboard_views.bulk_grant_access_view, name='dashboard_bulk_grant_access'),
+    path('dashboard/students/<int:user_id>/grant-access/', dashboard_views.grant_course_access_view, name='dashboard_grant_access'),
+    path('dashboard/students/<int:user_id>/revoke-access/', dashboard_views.revoke_course_access_view, name='dashboard_revoke_access'),
+    path('dashboard/students/<int:user_id>/grant-bundle/', dashboard_views.grant_bundle_access_view, name='dashboard_grant_bundle'),
+    path('dashboard/students/<int:user_id>/add-cohort/', dashboard_views.add_to_cohort_view, name='dashboard_add_cohort'),
+    
     # Creator/Lesson Upload Flow (kept for lesson creation)
     path('creator/', views.creator_dashboard, name='creator_dashboard'),
     path('creator/courses/<slug:course_slug>/lessons/', views.course_lessons, name='course_lessons'),

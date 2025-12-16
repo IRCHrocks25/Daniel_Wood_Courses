@@ -28,10 +28,15 @@ from .models import (
     UserProgress,
     CourseEnrollment,
     Exam,
+    CourseAccess,
     ExamAttempt,
     Certification,
     LessonQuiz,
     LessonQuizQuestion,
+    Bundle,
+    BundlePurchase,
+    Cohort,
+    CohortMember,
 )
 from django.contrib import messages
 from django.db import models
@@ -73,8 +78,21 @@ def dashboard_students(request):
     search_query = request.GET.get('search', '')
     sort_by = request.GET.get('sort', 'recent')  # recent, progress, name, enrolled
     
-    # Get all unique students (users with enrollments)
-    students_query = User.objects.filter(enrollments__isnull=False).distinct()
+    # Get all users including admin/staff
+    # Show all users who have activity OR all users if none have activity
+    students_query = User.objects.all()
+    
+    # Auto-enroll admin/staff users in all active courses if they don't have enrollments
+    admin_users = students_query.filter(Q(is_staff=True) | Q(is_superuser=True))
+    active_courses = Course.objects.filter(status='active')
+    
+    for admin_user in admin_users:
+        for course in active_courses:
+            CourseEnrollment.objects.get_or_create(
+                user=admin_user,
+                course=course,
+                defaults={'payment_type': 'full'}
+            )
     
     # Apply search filter
     if search_query:
@@ -88,24 +106,37 @@ def dashboard_students(request):
     # Get student data with activity
     students_data = []
     for student in students_query:
+        # Get enrollments (legacy system)
         enrollments = CourseEnrollment.objects.filter(user=student).select_related('course')
+        
+        # Get course access records (new access control system)
+        course_accesses = CourseAccess.objects.filter(
+            user=student,
+            status='unlocked'
+        ).select_related('course')
+        
+        # Combine both - get unique courses from enrollments and accesses
+        enrollment_courses = set(enrollments.values_list('course_id', flat=True))
+        access_courses = set(course_accesses.values_list('course_id', flat=True))
+        all_course_ids = enrollment_courses | access_courses
         
         # Apply course filter
         if course_filter:
-            enrollments = enrollments.filter(course_id=course_filter)
+            if int(course_filter) not in all_course_ids:
+                continue
+            all_course_ids = {int(course_filter)}
         
-        if not enrollments.exists():
-            continue
+        # Get all courses for this student (even if empty, we still show the student)
+        student_courses = Course.objects.filter(id__in=all_course_ids) if all_course_ids else Course.objects.none()
         
         # Calculate overall stats
-        total_courses = enrollments.count()
+        total_courses = len(all_course_ids)
         total_lessons_all = 0
         completed_lessons_all = 0
         certifications_count = 0
         recent_activity = None
         
-        for enrollment in enrollments:
-            course = enrollment.course
+        for course in student_courses:
             total_lessons = course.lessons.count()
             completed_lessons = UserProgress.objects.filter(
                 user=student,
@@ -168,6 +199,8 @@ def dashboard_students(request):
             'recent_activity': recent_activity,
             'status': student_status,
             'enrollments': enrollments,
+            'course_accesses': course_accesses,
+            'courses': student_courses,
         })
     
     # Sort students
@@ -1008,9 +1041,23 @@ def dashboard_student_detail(request, user_id, course_slug=None):
             'certification': certification,
         })
     
+    # Get all course access records for this student
+    from .models import CourseAccess
+    course_accesses = CourseAccess.objects.filter(user=user).select_related('course', 'bundle_purchase', 'cohort', 'granted_by', 'revoked_by').order_by('-granted_at')
+    
+    # Get bundles and cohorts for access management
+    from .models import Bundle, Cohort
+    bundles = Bundle.objects.filter(is_active=True)
+    cohorts = Cohort.objects.filter(is_active=True)
+    all_courses = Course.objects.filter(status='active')
+    
     return render(request, 'dashboard/student_detail.html', {
         'student': user,
         'course_data': course_data,
+        'course_accesses': course_accesses,
+        'bundles': bundles,
+        'cohorts': cohorts,
+        'courses': all_courses,
     })
 
 
@@ -1074,6 +1121,236 @@ def dashboard_course_progress(request, course_slug):
     return render(request, 'dashboard/course_progress.html', {
         'course': course,
         'student_progress': student_progress,
+    })
+
+
+# ========== ACCESS MANAGEMENT VIEWS ==========
+
+@staff_member_required
+@require_http_methods(["POST"])
+def grant_course_access_view(request, user_id):
+    """Grant course access to a student"""
+    user = get_object_or_404(User, id=user_id)
+    from .utils.access import grant_course_access
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    course_id = request.POST.get('course_id')
+    access_type = request.POST.get('access_type', 'manual')
+    expires_in_days = request.POST.get('expires_in_days', '')
+    notes = request.POST.get('notes', '')
+    
+    if not course_id:
+        return JsonResponse({'success': False, 'error': 'Course ID required'}, status=400)
+    
+    course = get_object_or_404(Course, id=course_id)
+    
+    # Calculate expiration
+    expires_at = None
+    if expires_in_days:
+        try:
+            days = int(expires_in_days)
+            expires_at = timezone.now() + timedelta(days=days)
+        except ValueError:
+            pass
+    
+    # Grant access
+    access = grant_course_access(
+        user=user,
+        course=course,
+        access_type=access_type,
+        granted_by=request.user,
+        expires_at=expires_at,
+        notes=notes
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Access granted to {course.name}',
+        'access_id': access.id
+    })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def revoke_course_access_view(request, user_id):
+    """Revoke course access from a student"""
+    user = get_object_or_404(User, id=user_id)
+    from .utils.access import revoke_course_access
+    
+    course_id = request.POST.get('course_id')
+    reason = request.POST.get('reason', '')
+    notes = request.POST.get('notes', '')
+    
+    if not course_id:
+        return JsonResponse({'success': False, 'error': 'Course ID required'}, status=400)
+    
+    course = get_object_or_404(Course, id=course_id)
+    
+    # Revoke access
+    access = revoke_course_access(
+        user=user,
+        course=course,
+        revoked_by=request.user,
+        reason=reason,
+        notes=notes
+    )
+    
+    if access:
+        return JsonResponse({
+            'success': True,
+            'message': f'Access revoked for {course.name}'
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'No active access found to revoke'
+        }, status=400)
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def grant_bundle_access_view(request, user_id):
+    """Grant bundle access to a student"""
+    user = get_object_or_404(User, id=user_id)
+    from .utils.access import grant_bundle_access
+    
+    bundle_id = request.POST.get('bundle_id')
+    purchase_id = request.POST.get('purchase_id', '')
+    notes = request.POST.get('notes', '')
+    
+    if not bundle_id:
+        return JsonResponse({'success': False, 'error': 'Bundle ID required'}, status=400)
+    
+    bundle = get_object_or_404(Bundle, id=bundle_id)
+    
+    # Create bundle purchase
+    bundle_purchase = BundlePurchase.objects.create(
+        user=user,
+        bundle=bundle,
+        purchase_id=purchase_id,
+        notes=notes
+    )
+    
+    # Grant access to all courses in bundle
+    granted_accesses = grant_bundle_access(user, bundle_purchase)
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Bundle access granted - {len(granted_accesses)} courses unlocked',
+        'bundle_purchase_id': bundle_purchase.id
+    })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def add_to_cohort_view(request, user_id):
+    """Add student to a cohort"""
+    user = get_object_or_404(User, id=user_id)
+    
+    cohort_id = request.POST.get('cohort_id')
+    if not cohort_id:
+        return JsonResponse({'success': False, 'error': 'Cohort ID required'}, status=400)
+    
+    cohort = get_object_or_404(Cohort, id=cohort_id)
+    
+    # Add to cohort
+    member, created = CohortMember.objects.get_or_create(
+        user=user,
+        cohort=cohort
+    )
+    
+    if created:
+        # Grant access to courses associated with cohort (if any)
+        # Note: This requires adding a many-to-many relationship between Cohort and Course
+        # For now, we'll just add them to the cohort
+        message = f'Added to cohort: {cohort.name}'
+    else:
+        message = f'Already in cohort: {cohort.name}'
+    
+    return JsonResponse({
+        'success': True,
+        'message': message
+    })
+
+
+@staff_member_required
+def bulk_access_management(request):
+    """Bulk access management page"""
+    # Get all active courses, bundles, and cohorts
+    courses = Course.objects.filter(status='active')
+    bundles = Bundle.objects.filter(is_active=True)
+    cohorts = Cohort.objects.filter(is_active=True)
+    
+    # Get all users (for selection)
+    users = User.objects.all().order_by('username')
+    
+    return render(request, 'dashboard/bulk_access.html', {
+        'courses': courses,
+        'bundles': bundles,
+        'cohorts': cohorts,
+        'users': users,
+    })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def bulk_grant_access_view(request):
+    """Bulk grant course access to multiple students"""
+    from .utils.access import grant_course_access
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    user_ids = request.POST.getlist('user_ids[]')
+    course_ids = request.POST.getlist('course_ids[]')
+    access_type = request.POST.get('access_type', 'manual')
+    expires_in_days = request.POST.get('expires_in_days', '')
+    notes = request.POST.get('notes', '')
+    
+    if not user_ids or not course_ids:
+        return JsonResponse({'success': False, 'error': 'Users and courses required'}, status=400)
+    
+    # Calculate expiration
+    expires_at = None
+    if expires_in_days:
+        try:
+            days = int(expires_in_days)
+            expires_at = timezone.now() + timedelta(days=days)
+        except ValueError:
+            pass
+    
+    granted_count = 0
+    for user_id in user_ids:
+        try:
+            user = User.objects.get(id=user_id)
+            for course_id in course_ids:
+                try:
+                    course = Course.objects.get(id=course_id)
+                    # Check if access already exists
+                    existing = CourseAccess.objects.filter(
+                        user=user,
+                        course=course,
+                        status='unlocked'
+                    ).first()
+                    if not existing:
+                        grant_course_access(
+                            user=user,
+                            course=course,
+                            access_type=access_type,
+                            granted_by=request.user,
+                            expires_at=expires_at,
+                            notes=notes
+                        )
+                        granted_count += 1
+                except Course.DoesNotExist:
+                    continue
+        except User.DoesNotExist:
+            continue
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Granted {granted_count} access records',
+        'granted_count': granted_count
     })
 
 

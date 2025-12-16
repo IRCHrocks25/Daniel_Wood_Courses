@@ -17,6 +17,41 @@
         </a>
     </div>
 
+    <!-- AI Tools Section -->
+    <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
+        <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
+            <i class="fas fa-robot text-cyan-electric"></i>
+            AI Tools
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a href="https://aidistrictagents.com/auth?redirectTo=https%3A%2F%2Faitoolhub.aidistrictagents.com%2F" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-br from-cyan-electric/10 to-purple-accent/10 border border-cyan-electric/20 rounded-xl p-6 hover:border-cyan-electric/40 hover:from-cyan-electric/20 hover:to-purple-accent/20 transition-all group">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-tools text-[#0a0e27] text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold mb-1">AI Tool Hub</h3>
+                        <p class="text-sm text-gray-400">Access powerful AI tools and resources</p>
+                    </div>
+                    <i class="fas fa-external-link-alt text-cyan-electric/50 group-hover:text-cyan-electric transition-colors"></i>
+                </div>
+            </a>
+            
+            <a href="https://aidistrictagents.com/auth?redirectTo=https%3A%2F%2Fprompts.aidistrictagents.com%2F" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-br from-cyan-electric/10 to-purple-accent/10 border border-cyan-electric/20 rounded-xl p-6 hover:border-cyan-electric/40 hover:from-cyan-electric/20 hover:to-purple-accent/20 transition-all group">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-magic text-[#0a0e27] text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold mb-1">AI Prompts</h3>
+                        <p class="text-sm text-gray-400">Discover and use AI prompts</p>
+                    </div>
+                    <i class="fas fa-external-link-alt text-cyan-electric/50 group-hover:text-cyan-electric transition-colors"></i>
+                </div>
+            </a>
+        </div>
+    </div>
+
     <!-- Overall Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
@@ -71,13 +106,13 @@
         </div>
     </div>
 
-    <!-- Course Progress Cards -->
+    <!-- My Courses Section -->
     <div class="space-y-6">
         <h2 class="text-2xl font-bold">My Courses</h2>
         
-        {% if course_data %}
+        {% if my_courses %}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {% for data in course_data %}
+            {% for data in my_courses %}
             <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6 hover:border-cyan-electric/30 transition-all">
                 <div class="flex items-start justify-between mb-4">
                     <div class="flex-1">
@@ -109,6 +144,21 @@
                                 {% endif %}
                             </div>
                         </div>
+                        
+                        <!-- Access Source & Status -->
+                        {% if data.access_record %}
+                        <div class="mb-4">
+                            <div class="text-xs text-gray-400 mb-1">Access granted via:</div>
+                            <span class="px-2 py-1 bg-cyan-electric/10 border border-cyan-electric/20 rounded text-xs text-cyan-electric">
+                                {{ data.access_record.get_source_display }}
+                            </span>
+                            {% if data.access_record.expires_at %}
+                            <span class="ml-2 text-xs text-yellow-400">
+                                <i class="fas fa-clock"></i> Expires: {{ data.access_record.expires_at|date:"M d, Y" }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                         
                         <!-- Exam & Certification Status -->
                         <div class="flex flex-wrap gap-2 mb-4">
@@ -163,14 +213,91 @@
         {% else %}
         <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-12 text-center">
             <i class="fas fa-book-open text-6xl text-gray-600 mb-4"></i>
-            <h3 class="text-xl font-semibold mb-2">No Courses Enrolled</h3>
-            <p class="text-gray-400 mb-6">Start your learning journey by enrolling in a course</p>
-            <a href="{% url 'courses' %}" class="inline-block px-6 py-3 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold rounded-xl transition-all">
-                Browse Courses
-            </a>
+            <h3 class="text-xl font-semibold mb-2">No Courses Yet</h3>
+            <p class="text-gray-400 mb-6">You don't have access to any courses yet. Check out available courses below or contact support.</p>
         </div>
         {% endif %}
     </div>
+    
+    <!-- Available to Unlock Section -->
+    {% if available_to_unlock %}
+    <div class="space-y-6">
+        <h2 class="text-2xl font-bold">Available to Unlock</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {% for data in available_to_unlock %}
+            <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-yellow-500/20 rounded-xl p-6 hover:border-yellow-500/40 transition-all">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold mb-2">{{ data.course.name }}</h3>
+                        <p class="text-sm text-gray-400 mb-4">{{ data.course.short_description|truncatewords:20 }}</p>
+                    </div>
+                    <span class="px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-xs text-yellow-400 font-semibold">
+                        Available
+                    </span>
+                </div>
+                
+                {% if data.bundles %}
+                <div class="mb-4">
+                    <div class="text-xs text-gray-400 mb-2">Available in bundles:</div>
+                    {% for bundle in data.bundles %}
+                    <div class="text-sm text-cyan-electric mb-1">
+                        <i class="fas fa-gift mr-1"></i>{{ bundle.name }}
+                        {% if bundle.price %}
+                        <span class="text-gray-400">- ${{ bundle.price }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if not data.prereqs_met %}
+                <div class="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div class="text-xs font-semibold text-yellow-400 mb-1">Prerequisites Required:</div>
+                    <ul class="text-xs text-gray-300 space-y-1">
+                        {% for prereq in data.missing_prereqs %}
+                        <li><i class="fas fa-lock mr-1"></i>{{ prereq.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'courses' %}" class="flex-1 px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 rounded-lg text-sm font-medium text-center transition-all text-yellow-400">
+                        View Details
+                    </a>
+                    {% if data.bundles %}
+                    <a href="{% url 'courses' %}" class="px-4 py-2 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold rounded-lg transition-all">
+                        View Bundles
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Not Available Section (Hidden by default, can be shown if needed) -->
+    {% if not_available and False %}
+    <div class="space-y-6">
+        <h2 class="text-2xl font-bold">Not Available</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {% for data in not_available %}
+            <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-gray-500/20 rounded-xl p-6 opacity-60">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold mb-2">{{ data.course.name }}</h3>
+                        <p class="text-sm text-gray-500 mb-4">{{ data.reason }}</p>
+                    </div>
+                    <span class="px-3 py-1 bg-gray-500/20 border border-gray-500/30 rounded-full text-xs text-gray-400 font-semibold">
+                        Not Available
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
