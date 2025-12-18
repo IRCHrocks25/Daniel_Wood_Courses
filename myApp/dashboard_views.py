@@ -1363,3 +1363,137 @@ def generate_slug(text):
     text = re.sub(r'[-\s]+', '-', text)
     return text.strip('-')
 
+
+# ========== BUNDLE MANAGEMENT ==========
+
+@staff_member_required
+def dashboard_bundles(request):
+    """List all bundles"""
+    bundles = Bundle.objects.annotate(
+        course_count=Count('courses'),
+        purchase_count=Count('purchases')
+    ).order_by('-created_at')
+    
+    return render(request, 'dashboard/bundles.html', {
+        'bundles': bundles,
+    })
+
+
+@staff_member_required
+def dashboard_add_bundle(request):
+    """Create a new bundle"""
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        description = request.POST.get('description', '')
+        bundle_type = request.POST.get('bundle_type', 'fixed')
+        price = request.POST.get('price', '') or None
+        is_active = request.POST.get('is_active') == 'on'
+        max_course_selections = request.POST.get('max_course_selections', '') or None
+        course_ids = request.POST.getlist('courses')
+        
+        if not name:
+            messages.error(request, 'Bundle name is required')
+            return redirect('dashboard_add_bundle')
+        
+        # Generate slug from name
+        slug = generate_slug(name)
+        # Ensure slug is unique
+        base_slug = slug
+        counter = 1
+        while Bundle.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        bundle = Bundle.objects.create(
+            name=name,
+            slug=slug,
+            description=description,
+            bundle_type=bundle_type,
+            price=float(price) if price else None,
+            is_active=is_active,
+            max_course_selections=int(max_course_selections) if max_course_selections else None
+        )
+        
+        # Add courses
+        if course_ids:
+            courses = Course.objects.filter(id__in=course_ids)
+            bundle.courses.set(courses)
+        
+        messages.success(request, f'Bundle "{bundle.name}" created successfully!')
+        return redirect('dashboard_bundles')
+    
+    courses = Course.objects.filter(status='active').order_by('name')
+    return render(request, 'dashboard/add_bundle.html', {
+        'courses': courses,
+    })
+
+
+@staff_member_required
+def dashboard_edit_bundle(request, bundle_id):
+    """Edit an existing bundle"""
+    bundle = get_object_or_404(Bundle, id=bundle_id)
+    
+    if request.method == 'POST':
+        bundle.name = request.POST.get('name')
+        bundle.description = request.POST.get('description', '')
+        bundle.bundle_type = request.POST.get('bundle_type', 'fixed')
+        price = request.POST.get('price', '') or None
+        bundle.is_active = request.POST.get('is_active') == 'on'
+        max_course_selections = request.POST.get('max_course_selections', '') or None
+        course_ids = request.POST.getlist('courses')
+        
+        if not bundle.name:
+            messages.error(request, 'Bundle name is required')
+            return redirect('dashboard_edit_bundle', bundle_id=bundle_id)
+        
+        # Update slug if name changed
+        new_slug = generate_slug(bundle.name)
+        if new_slug != bundle.slug:
+            base_slug = new_slug
+            counter = 1
+            while Bundle.objects.filter(slug=new_slug).exclude(id=bundle.id).exists():
+                new_slug = f"{base_slug}-{counter}"
+                counter += 1
+            bundle.slug = new_slug
+        
+        bundle.price = float(price) if price else None
+        bundle.max_course_selections = int(max_course_selections) if max_course_selections else None
+        bundle.save()
+        
+        # Update courses
+        if course_ids:
+            courses = Course.objects.filter(id__in=course_ids)
+            bundle.courses.set(courses)
+        else:
+            bundle.courses.clear()
+        
+        messages.success(request, f'Bundle "{bundle.name}" updated successfully!')
+        return redirect('dashboard_bundles')
+    
+    courses = Course.objects.filter(status='active').order_by('name')
+    selected_course_ids = bundle.courses.values_list('id', flat=True)
+    
+    return render(request, 'dashboard/edit_bundle.html', {
+        'bundle': bundle,
+        'courses': courses,
+        'selected_course_ids': selected_course_ids,
+    })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def dashboard_delete_bundle(request, bundle_id):
+    """Delete a bundle"""
+    bundle = get_object_or_404(Bundle, id=bundle_id)
+    bundle_name = bundle.name
+    
+    # Check if bundle has purchases
+    purchase_count = bundle.purchases.count()
+    if purchase_count > 0:
+        messages.error(request, f'Cannot delete bundle "{bundle_name}" because it has {purchase_count} purchase(s).')
+        return redirect('dashboard_bundles')
+    
+    bundle.delete()
+    messages.success(request, f'Bundle "{bundle_name}" deleted successfully!')
+    return redirect('dashboard_bundles')
+

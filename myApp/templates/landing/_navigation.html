@@ -1,0 +1,29 @@
+<!-- 1. Top Navigation (Sticky) -->
+<nav id="main-nav" class="fixed top-0 left-0 right-0 z-50 bg-[#0a0e27]/60 backdrop-blur-md border-b border-cyan-electric/20 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-6 lg:px-12 py-4">
+        <div class="flex items-center justify-between">
+            <!-- Left: Logo -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center">
+                    <i class="fas fa-bolt text-white"></i>
+                </div>
+                <div class="text-lg font-bold">AI-Assisted Entrepreneur Hub</div>
+            </div>
+            
+            <!-- Center: Menu -->
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#highlights" class="text-sm font-medium hover:text-cyan-electric transition-colors">Highlights</a>
+                <a href="#about" class="text-sm font-medium hover:text-cyan-electric transition-colors">About</a>
+                <a href="#results" class="text-sm font-medium hover:text-cyan-electric transition-colors">Results</a>
+                <a href="#join" class="text-sm font-medium hover:text-cyan-electric transition-colors">Join</a>
+            </div>
+            
+            <!-- Right: Login Button -->
+            <a href="{% url 'login' %}" class="px-6 py-2.5 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold rounded-lg transition-all shadow-lg shadow-cyan-electric/20">
+                Login
+            </a>
+        </div>
+    </div>
+</nav>
+
+

@@ -547,7 +547,7 @@ class CourseAccess(models.Model):
         blank=True,
         related_name='granted_accesses'
     )
-    purchase_id = models.CharField(max_length=200, blank=True, help_text="External purchase ID")
+    purchase_id = models.CharField(max_length=200, null=True, blank=True, help_text="External purchase ID")
     
     # Dates
     granted_at = models.DateTimeField(auto_now_add=True)

@@ -43,6 +43,12 @@ urlpatterns = [
     path('dashboard/students/<int:user_id>/<slug:course_slug>/', dashboard_views.dashboard_student_detail, name='dashboard_student_detail_course'),
     path('dashboard/courses/<slug:course_slug>/progress/', dashboard_views.dashboard_course_progress, name='dashboard_course_progress'),
     
+    # Bundle Management
+    path('dashboard/bundles/', dashboard_views.dashboard_bundles, name='dashboard_bundles'),
+    path('dashboard/bundles/add/', dashboard_views.dashboard_add_bundle, name='dashboard_add_bundle'),
+    path('dashboard/bundles/<int:bundle_id>/edit/', dashboard_views.dashboard_edit_bundle, name='dashboard_edit_bundle'),
+    path('dashboard/bundles/<int:bundle_id>/delete/', dashboard_views.dashboard_delete_bundle, name='dashboard_delete_bundle'),
+    
     # Access Management
     path('dashboard/access/bulk/', dashboard_views.bulk_access_management, name='dashboard_bulk_access'),
     path('dashboard/access/bulk/grant/', dashboard_views.bulk_grant_access_view, name='dashboard_bulk_grant_access'),

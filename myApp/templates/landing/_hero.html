@@ -1,0 +1,67 @@
+<!-- 2. Hero Section (Premium Editorial) -->
+<section class="relative pt-32 pb-28 lg:pt-40 lg:pb-36 overflow-hidden">
+    <!-- Stunning Background Gradient -->
+    <div class="absolute inset-0 bg-gradient-to-br from-[#0a0e27] via-[#1a1f3a] to-[#000000]"></div>
+    
+    <!-- Animated Gradient Orbs -->
+    <div class="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-cyan-electric/20 via-purple-accent/15 to-transparent rounded-full blur-3xl opacity-60 animate-pulse"></div>
+    <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-to-tl from-emerald-glow/15 via-purple-accent/10 to-transparent rounded-full blur-3xl opacity-50"></div>
+    <div class="absolute top-1/2 right-0 w-[400px] h-[400px] bg-gradient-to-l from-cyan-electric/10 to-transparent rounded-full blur-2xl opacity-40"></div>
+    
+    <!-- Subtle texture overlay -->
+    <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, rgba(0,240,255,0.15) 1px, transparent 0); background-size: 40px 40px;"></div>
+    
+    <!-- Content -->
+    <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+        <div class="grid lg:grid-cols-2 gap-20 items-center">
+            <!-- Left Column (Copy) -->
+            <div class="space-y-8 relative z-10">
+                <div class="text-xs tracking-wider text-cyan-electric/70 font-semibold uppercase">Welcome to</div>
+                <h1 class="text-5xl lg:text-7xl font-black leading-tight">
+                    AI-Assisted<br>
+                    <span class="bg-gradient-to-r from-cyan-electric via-purple-accent to-emerald-glow bg-clip-text text-transparent">Entrepreneur Membership Hub</span>
+                </h1>
+                <p class="text-xl text-gray-200 leading-relaxed max-w-xl">
+                    Build, sell, and scale with AI—faster.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <a href="#join" class="px-8 py-4 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all shadow-xl shadow-cyan-electric/30 text-center hover:scale-105 transform duration-300">
+                        Join the Membership
+                    </a>
+                    <a href="{% url 'login' %}" class="px-8 py-4 bg-white/5 backdrop-blur-sm border border-white/10 hover:border-cyan-electric/40 hover:bg-white/10 text-white font-bold rounded-xl transition-all text-center">
+                        Login
+                    </a>
+                </div>
+                <!-- Credibility Strip -->
+                <div class="flex items-center gap-4 text-sm text-gray-400 pt-2">
+                    <span>40+ companies</span>
+                    <span class="text-gray-600">•</span>
+                    <span>$500M sales</span>
+                    <span class="text-gray-600">•</span>
+                    <span>32 countries</span>
+                </div>
+            </div>
+            
+            <!-- Right Column: Hero Visual (Kane & Alessia Logo) -->
+            <div class="relative z-10">
+                <!-- Seamless image integration with glow effect -->
+                <div class="relative">
+                    <!-- Ambient glow behind image -->
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-electric/20 via-purple-accent/15 to-emerald-glow/10 rounded-3xl blur-3xl opacity-60 -z-10 transform scale-110"></div>
+                    
+                    <!-- Image container - no borders, seamless -->
+                    <div class="relative">
+                        <img 
+                            src="https://aiassistedacademy.com/wp-content/uploads/2023/08/Kane-Alessia-Logo-header1.png" 
+                            alt="Kane & Alessia Logo" 
+                            class="w-full h-auto object-contain drop-shadow-2xl"
+                            loading="eager"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
