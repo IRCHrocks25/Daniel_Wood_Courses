@@ -31,8 +31,202 @@
             }
         });
     });
+
+    // Hero Section Awesome Effects
+    (function() {
+        const heroSection = document.querySelector('section.relative.pt-32');
+        if (!heroSection) return;
+
+        const video = heroSection.querySelector('video');
+        const heroContent = heroSection.querySelector('.hero-content');
+        
+        // 1. Staggered Fade-in Animation for Hero Content
+        function animateHeroContent() {
+            const elements = [
+                heroSection.querySelector('.hero-fade-in'),
+                heroSection.querySelector('.hero-title'),
+                heroSection.querySelector('.hero-subtitle'),
+                heroSection.querySelector('.hero-buttons'),
+                heroSection.querySelector('.hero-stats')
+            ];
+
+            elements.forEach((el, index) => {
+                if (el) {
+                    setTimeout(() => {
+                        el.style.transition = 'opacity 1s ease-out, transform 1s ease-out';
+                        el.style.opacity = '1';
+                        el.style.transform = 'translateY(0)';
+                    }, index * 200);
+                }
+            });
+        }
+
+        // Set initial transform for slide-up effect
+        const animatedElements = heroSection.querySelectorAll('.hero-fade-in, .hero-title, .hero-subtitle, .hero-buttons, .hero-stats');
+        animatedElements.forEach(el => {
+            el.style.transform = 'translateY(30px)';
+        });
+
+        // 2. Parallax Effect for Video Background
+        let lastScrollY = window.scrollY;
+        function handleParallax() {
+            const scrollY = window.scrollY;
+            const heroHeight = heroSection.offsetHeight;
+            
+            if (scrollY < heroHeight && video) {
+                const parallaxValue = scrollY * 0.5;
+                video.style.transform = `translateY(${parallaxValue}px) scale(1.1)`;
+                video.style.transition = 'transform 0.1s ease-out';
+            }
+            lastScrollY = scrollY;
+        }
+
+        // 3. Mouse Cursor Glow Effect
+        let mouseX = 0, mouseY = 0;
+        let cursorX = 0, cursorY = 0;
+        
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function animateCursor() {
+            cursorX += (mouseX - cursorX) * 0.1;
+            cursorY += (mouseY - cursorY) * 0.1;
+            
+            const gradientOrbs = heroSection.querySelectorAll('.absolute.rounded-full.blur-3xl, .absolute.rounded-full.blur-2xl');
+            gradientOrbs.forEach((orb, index) => {
+                const speed = (index + 1) * 0.0001;
+                const x = (cursorX - window.innerWidth / 2) * speed;
+                const y = (cursorY - window.innerHeight / 2) * speed;
+                orb.style.transform = `translate(${x}px, ${y}px)`;
+            });
+            
+            requestAnimationFrame(animateCursor);
+        }
+
+        // 4. Floating Particles Effect
+        function createParticles() {
+            const particleContainer = document.createElement('div');
+            particleContainer.className = 'particle-container';
+            particleContainer.style.cssText = 'position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden;';
+            heroSection.appendChild(particleContainer);
+
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                const size = Math.random() * 4 + 2;
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                const duration = Math.random() * 10 + 10;
+                const delay = Math.random() * 5;
+                
+                particle.style.cssText = `
+                    position: absolute;
+                    width: ${size}px;
+                    height: ${size}px;
+                    background: radial-gradient(circle, rgba(147,51,234,0.6) 0%, rgba(192,132,252,0.3) 50%, transparent 100%);
+                    border-radius: 50%;
+                    left: ${x}%;
+                    top: ${y}%;
+                    animation: float ${duration}s ease-in-out infinite;
+                    animation-delay: ${delay}s;
+                    box-shadow: 0 0 10px rgba(147,51,234,0.5);
+                `;
+                particleContainer.appendChild(particle);
+            }
+        }
+
+        // 5. Text Reveal Animation with Gradient (Purple pulse)
+        function animateGradientText() {
+            const gradientText = heroSection.querySelector('.bg-gradient-to-r');
+            if (gradientText) {
+                let opacity = 0.8;
+                let direction = 1;
+                setInterval(() => {
+                    opacity += direction * 0.01;
+                    if (opacity >= 1) direction = -1;
+                    if (opacity <= 0.7) direction = 1;
+                    gradientText.style.opacity = opacity;
+                }, 50);
+            }
+        }
+
+        // 6. Button Magnetic Effect
+        const buttons = heroSection.querySelectorAll('.hero-btn');
+        buttons.forEach(button => {
+            button.addEventListener('mousemove', (e) => {
+                const rect = button.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                
+                button.style.transform = `translate(${x * 0.1}px, ${y * 0.1}px) scale(1.05)`;
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translate(0, 0) scale(1)';
+            });
+        });
+
+        // 7. Video Playback Speed Control on Scroll
+        function controlVideoSpeed() {
+            const scrollY = window.scrollY;
+            const heroHeight = heroSection.offsetHeight;
+            
+            if (scrollY < heroHeight && video) {
+                // Slow down video slightly when scrolling
+                const speed = 1 - (scrollY / heroHeight) * 0.3;
+                video.playbackRate = Math.max(0.7, speed);
+            }
+        }
+
+        // Initialize all effects
+        window.addEventListener('load', () => {
+            animateHeroContent();
+            createParticles();
+            animateGradientText();
+            animateCursor();
+        });
+
+        // Add scroll listeners
+        window.addEventListener('scroll', () => {
+            handleParallax();
+            controlVideoSpeed();
+        }, { passive: true });
+
+        // Add CSS animation for particles
+        if (!document.getElementById('hero-animations')) {
+            const style = document.createElement('style');
+            style.id = 'hero-animations';
+            style.textContent = `
+                @keyframes float {
+                    0%, 100% {
+                        transform: translateY(0) translateX(0) scale(1);
+                        opacity: 0.7;
+                    }
+                    25% {
+                        transform: translateY(-20px) translateX(10px) scale(1.1);
+                        opacity: 1;
+                    }
+                    50% {
+                        transform: translateY(-40px) translateX(-10px) scale(0.9);
+                        opacity: 0.8;
+                    }
+                    75% {
+                        transform: translateY(-20px) translateX(5px) scale(1.05);
+                        opacity: 0.9;
+                    }
+                }
+                
+                .hero-content * {
+                    text-shadow: 0 0 20px rgba(147, 51, 234, 0.4), 0 0 40px rgba(192, 132, 252, 0.3);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    })();
 </script>
 </body>
 </html>
+
 
 

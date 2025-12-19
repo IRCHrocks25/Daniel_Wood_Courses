@@ -1,9 +1,64 @@
 <!-- 7. Join Us Form (Luxury Checkout - Calm Background) -->
 <section id="join" class="py-28 relative join-bg">
+    <!-- Floating Purple & Blue Blobs -->
+    <div class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+      <div class="floating-blob-join blob-join-1 blob-purple"></div>
+      <div class="floating-blob-join blob-join-2 blob-blue"></div>
+      <div class="floating-blob-join blob-join-3 blob-purple"></div>
+    </div>
+    
     <!-- Calm backdrop: deep dark gradient + subtle glow (NO crowd photo) -->
-    <div class="absolute inset-0 opacity-10 pointer-events-none">
+    <div class="absolute inset-0 opacity-10 pointer-events-none z-1">
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);"></div>
     </div>
+    
+    <style>
+      .floating-blob-join {
+        position: absolute;
+        filter: blur(80px);
+        opacity: 0.45;
+      }
+      .blob-join-1 {
+        width: 440px;
+        height: 440px;
+        border-radius: 50% 50% 35% 65% / 50% 50% 65% 35%;
+        top: 20%;
+        left: 15%;
+        animation: floatJoin1 21s ease-in-out infinite;
+        background: linear-gradient(135deg, rgba(147, 51, 234, 0.4), rgba(192, 132, 252, 0.3), transparent);
+      }
+      .blob-join-2 {
+        width: 390px;
+        height: 390px;
+        border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
+        bottom: 25%;
+        right: 20%;
+        animation: floatJoin2 29s ease-in-out infinite;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.45), rgba(147, 197, 253, 0.3), transparent);
+      }
+      .blob-join-3 {
+        width: 340px;
+        height: 340px;
+        border-radius: 65% 35% 50% 50% / 35% 65% 35% 65%;
+        top: 55%;
+        right: 10%;
+        animation: floatJoin3 25s ease-in-out infinite;
+        background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(147, 51, 234, 0.25), transparent);
+      }
+      @keyframes floatJoin1 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        50% { transform: translate(50px, -55px) rotate(180deg); }
+      }
+      @keyframes floatJoin2 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        33% { transform: translate(-55px, 35px) rotate(120deg); }
+        66% { transform: translate(45px, -45px) rotate(240deg); }
+      }
+      @keyframes floatJoin3 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        50% { transform: translate(-40px, 50px) rotate(180deg); }
+      }
+    </style>
     
     <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
         <div class="grid lg:grid-cols-2 gap-20 items-start">
@@ -82,5 +137,6 @@
         </div>
     </div>
 </section>
+
 
 
