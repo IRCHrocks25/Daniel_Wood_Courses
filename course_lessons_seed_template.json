@@ -1,0 +1,63 @@
+{
+  "courses": [
+    {
+      "name": "Course Name Here",
+      "slug": "course-slug-here",
+      "course_type": "sprint",
+      "status": "active",
+      "description": "Full course description here. This should be a comprehensive description of what the course covers.",
+      "short_description": "Short description for course cards and previews (max 300 characters).",
+      "coach_name": "Coach Name",
+      "is_subscribers_only": false,
+      "is_accredible_certified": true,
+      "has_asset_templates": false,
+      "exam_unlock_days": 120,
+      "special_tag": "",
+      "visibility": "public",
+      "enrollment_method": "open",
+      "access_duration_type": "lifetime",
+      "access_duration_days": null,
+      "access_until_date": null,
+      "modules": [
+        {
+          "name": "Module Name",
+          "description": "Module description",
+          "order": 0,
+          "lessons": [
+            {
+              "title": "Lesson Title",
+              "slug": "lesson-slug",
+              "order": 1,
+              "description": "Lesson description here.",
+              "video_duration": 45,
+              "vimeo_duration_seconds": 2700,
+              "google_drive_url": "https://drive.google.com/file/d/YOUR_FILE_ID/preview",
+              "google_drive_id": "YOUR_FILE_ID",
+              "video_url": "",
+              "vimeo_url": "",
+              "vimeo_id": "",
+              "workbook_url": "",
+              "resources_url": "",
+              "lesson_type": "video",
+              "ai_clean_title": "Clean title for display",
+              "ai_short_summary": "Short summary for lesson list",
+              "ai_full_description": "Full description for student page. This can be more detailed.",
+              "ai_outcomes": [
+                "Outcome 1: What students will achieve",
+                "Outcome 2: Another key learning",
+                "Outcome 3: Practical skill gained"
+              ],
+              "ai_coach_actions": [
+                "Summarize in 5 bullets",
+                "Turn this into a 3-step action plan",
+                "Generate 3 email hooks from this content",
+                "Give me a comprehension quiz"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

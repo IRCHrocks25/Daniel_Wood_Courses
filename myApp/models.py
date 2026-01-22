@@ -102,7 +102,7 @@ class Lesson(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
     module = models.ForeignKey(Module, on_delete=models.SET_NULL, null=True, blank=True, related_name='lessons')
     title = models.CharField(max_length=200)
-    slug = models.SlugField()
+    slug = models.SlugField(max_length=200)
     description = models.TextField()
     video_url = models.URLField(blank=True)
     video_duration = models.IntegerField(default=0, help_text="Duration in minutes")
@@ -152,6 +152,9 @@ class Lesson(models.Model):
     ai_full_description = models.TextField(blank=True, help_text="AI-generated full description for student page")
     ai_outcomes = models.JSONField(default=list, blank=True, help_text="List of outcomes this lesson will produce")
     ai_coach_actions = models.JSONField(default=list, blank=True, help_text="Recommended AI Coach actions for this lesson")
+    
+    # Editor.js Content
+    content = models.JSONField(default=dict, blank=True, help_text="Editor.js content blocks for lesson content")
     
     class Meta:
         ordering = ['order', 'id']

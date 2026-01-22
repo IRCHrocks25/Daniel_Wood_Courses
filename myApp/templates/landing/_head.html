@@ -232,8 +232,20 @@
                 display: none;
             }
         }
+        
+        /* Prevent orphan rows in grids - ensure proper grid flow */
+        .grid {
+            grid-auto-flow: row;
+        }
+        
+        /* Ensure grid items don't create orphan rows */
+        .grid > * {
+            min-width: 0;
+        }
     </style>
 </head>
+
+
 
 
 

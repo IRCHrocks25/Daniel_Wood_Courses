@@ -1,17 +1,14 @@
 <!-- 2. Hero Section — Editorial / Cinematic (No Gradient) -->
 <section class="relative pt-32 pb-28 lg:pt-44 lg:pb-40 overflow-hidden bg-black">
 
-    <!-- Background Video -->
+    <!-- Background Image -->
     <div class="absolute inset-0 z-0 overflow-hidden">
-      <video
-        autoplay
-        loop
-        muted
-        playsinline
+      <img
+        src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769080732/Header_cjkciy.png"
+        alt="Swedish Wealth Institute"
         class="absolute inset-0 w-full h-full object-cover"
+        loading="eager"
       >
-        <source src="https://res.cloudinary.com/dcuswyfur/video/upload/v1766153184/membership_home_bg-1_v1_cyafq7.mp4" type="video/mp4">
-      </video>
   
       <!-- Cinematic Dark Scrim (no color) -->
       <div class="absolute inset-0 bg-black/55"></div>
@@ -33,38 +30,40 @@
           <!-- Label -->
           <div class="inline-flex items-center gap-2 text-[11px] tracking-widest uppercase text-white/60">
             <span class="w-1.5 h-1.5 rounded-full bg-white/50"></span>
-            For builders using AI
+            Premium event audience
           </div>
-  
+          <div class="text-sm text-white/60 mt-2">
+            Truth over trends • Proof over promises • Connection that moves you
+          </div>
+
           <!-- Headline -->
           <h1 class="text-5xl lg:text-7xl font-extrabold leading-[1.02] tracking-[-0.025em] text-white">
-            AI-Assisted<br>
-            Entrepreneur Membership
+            This isn't just learning.<br>
+            This is your turning point.
           </h1>
-  
+
           <!-- Subheadline -->
           <p class="text-lg lg:text-xl text-white/75 leading-relaxed max-w-xl">
-            Build, sell, and scale with AI.  
-            Systems, playbooks, and support for serious operators.
+            Swedish Wealth Institute connects you directly with vetted mentors, world-class conversations, and a global community that turns ambition into momentum—without hype, fluff, or guesswork.
           </p>
-  
+
           <!-- CTAs -->
           <div class="flex flex-col sm:flex-row gap-4 pt-2">
-            <a href="#join"
-               class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-white text-black font-semibold shadow-xl shadow-black/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
-              Join the Membership
-            </a>
-  
             <a href="{% url 'login' %}"
+               class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-white text-black font-semibold shadow-xl shadow-black/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
+              Step Into the Room
+            </a>
+
+            <a href="#pillars"
                class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-electric to-purple-accent text-[#0a0e27] font-bold shadow-xl shadow-cyan-electric/40 transition-all duration-300 hover:from-cyan-electric/90 hover:to-purple-accent/90 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-electric/60 relative overflow-hidden group">
-              <span class="relative z-10">Login</span>
+              <span class="relative z-10">Explore the Pillars</span>
               <div class="absolute inset-0 bg-gradient-to-r from-purple-accent to-cyan-electric opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </a>
           </div>
-  
+
           <!-- Trust Line -->
           <div class="pt-4 text-sm text-white/55">
-            40+ companies · $500M in sales · 32 countries
+            High-trust • Global access • Vetted mentors only
           </div>
   
         </div>

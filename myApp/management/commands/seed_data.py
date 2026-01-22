@@ -1,238 +1,966 @@
-
+"""
+Management command to seed initial data
+Usage: python manage.py seed_data
+"""
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from myApp.models import Course, Module, Lesson
+from myApp.models import Course, Lesson, Module
+import re
 import json
+import uuid
+from django.utils import timezone
 
 
 class Command(BaseCommand):
-    help = 'Seed the database with sample courses and lessons'
+    help = 'Seed initial data for the learning platform'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--course-slug',
+            type=str,
+            help='Slug of the course to add lessons to (if not provided, will use or create default course)',
+        )
+
+    def generate_slug(self, title):
+        """Generate a URL-friendly slug from a title"""
+        slug = title.lower()
+        slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special characters
+        slug = re.sub(r'[-\s]+', '-', slug)   # Replace spaces and multiple dashes with single dash
+        slug = slug.strip('-')                # Remove leading/trailing dashes
+        # Truncate to 200 characters to match model max_length
+        if len(slug) > 200:
+            slug = slug[:200].rstrip('-')
+        return slug
+    
+    def create_block(self, block_type, data, block_id=None):
+        """Create an Editor.js block"""
+        return {
+            "id": block_id or str(uuid.uuid4()),
+            "type": block_type,
+            "data": data
+        }
+    
+    def create_content_blocks(self, content_sections):
+        """Create Editor.js blocks from content sections"""
+        blocks = []
+        for section in content_sections:
+            if section['type'] == 'paragraph':
+                blocks.append(self.create_block('paragraph', {'text': section['text']}))
+            elif section['type'] == 'header':
+                blocks.append(self.create_block('header', {
+                    'text': section['text'],
+                    'level': section.get('level', 2)
+                }))
+            elif section['type'] == 'list':
+                blocks.append(self.create_block('list', {
+                    'style': section.get('style', 'unordered'),
+                    'items': section['items']
+                }))
+            elif section['type'] == 'quote':
+                blocks.append(self.create_block('quote', {
+                    'text': section['text'],
+                    'caption': section.get('caption', '')
+                }))
+        
+        return {
+            "time": int(timezone.now().timestamp() * 1000),
+            "blocks": blocks,
+            "version": "2.28.2"
+        }
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS('Starting to seed database...'))
+        self.stdout.write('Seeding data...')
         
-        # Create or get admin user
-        admin_user, created = User.objects.get_or_create(
-            username='admin',
-            defaults={
-                'email': 'admin@example.com',
-                'is_staff': True,
-                'is_superuser': True,
-            }
-        )
-        if created:
-            admin_user.set_password('admin123')
-            admin_user.save()
-            self.stdout.write(self.style.SUCCESS('Created admin user (username: admin, password: admin123)'))
+        # Create admin user if it doesn't exist
+        if not User.objects.filter(username='admin').exists():
+            admin = User.objects.create_superuser(
+                username='admin',
+                email='admin@example.com',
+                password='admin123'
+            )
+            self.stdout.write(self.style.SUCCESS(f'Created admin user: {admin.username}'))
         else:
-            self.stdout.write(self.style.WARNING('Admin user already exists'))
+            self.stdout.write('Admin user already exists')
         
-        # Google Drive video URLs (embed format) - 12 unique videos for 12 lessons
-        GOOGLE_DRIVE_VIDEOS = [
-            "https://drive.google.com/file/d/1vjh0c7ReJn4YjFsgcBCSJKW4xhJg3JOp/preview",  # 1st
-            "https://drive.google.com/file/d/15LLxGCE3gzMPpo4j7K5yyzaQmt9sTKHd/preview",  # 2nd
-            "https://drive.google.com/file/d/1c4DpGIwhRJo5ZrasVnRM4JJZdFLupvaw/preview",  # 3rd
-            "https://drive.google.com/file/d/1ItvLVPWsmdb9yoKDINcyIyOoa1IMCtcT/preview",  # 4th (kept, 5th was duplicate)
-            "https://drive.google.com/file/d/1z7NwNXfgEtZdLouj8b2wZu-YHHpfl2Nm/preview",  # 5th (was 6th)
-            "https://drive.google.com/file/d/1Wv06ZSdCzzb4TwdydHM_UF_I9bdhNsk3/preview",  # 6th (was 7th)
-            "https://drive.google.com/file/d/1paEt7fjQAc3MD_82JWA-oOZzJ7_MD82f/preview",  # 7th (was 8th)
-            "https://drive.google.com/file/d/1geHiehW3AOx80b2p2_TGSXLAjjcWBryX/preview",  # 8th (was 9th)
-            "https://drive.google.com/file/d/1-bCMwhgBrAW80en5lWIYURBh-XOWWBrn/preview",  # 9th (was 10th)
-            "https://drive.google.com/file/d/1tyNbO0k1QgL5thBxAndEWr8fLHyAMNjZ/preview",  # 10th (was 11th)
-            "https://drive.google.com/file/d/1sxRMfRi70UmEetf4bbSELMehXM8C38K4/preview",  # 11th (was 12th)
-            "https://drive.google.com/file/d/1rvZR8uldp-dTgwsx7rbPkKmYFeUq2N5x/preview",  # 12th (was 13th)
-        ]
+        # Get or create course
+        course_slug = options.get('course_slug') or 'asset-mastery'
         
-        # Create Course: VIRTUAL ROCKSTAR™
+        # If financial-literacy is requested, create that course instead
+        if course_slug == 'financial-literacy':
+            self.create_financial_literacy_course()
+            return
+        
+        # If time-management-mastery is requested, create that course instead
+        if course_slug == 'time-management-mastery':
+            self.create_time_management_course()
+            return
+        
+        # Create Asset Mastery course
         course, created = Course.objects.get_or_create(
-            slug='virtual-rockstar',
+            slug=course_slug,
             defaults={
-                'name': 'VIRTUAL ROCKSTAR™',
+                'name': 'Asset Mastery',
                 'course_type': 'sprint',
                 'status': 'active',
-                'description': 'Master the art of virtual presence and digital impact. Learn live streaming, webinars, podcasts, and community engagement from industry rockstars.',
-                'short_description': 'Your complete guide to becoming a Virtual Rockstar. Master live streaming, webinars, podcasts, and community engagement.',
-                'coach_name': 'Virtual Rockstar Coach',
-                'is_subscribers_only': False,
-                'is_accredible_certified': True,
-                'has_asset_templates': True,
-                'exam_unlock_days': 120,
+                'visibility': 'public',
+                'enrollment_method': 'open',
+                'description': '''Master the financial principles that separate the wealthy from everyone else. This comprehensive course reveals the money flow patterns, asset classes, and strategic frameworks used by high-net-worth individuals to build lasting wealth.
+
+Learn how to structure your finances for freedom, understand the complete asset universe, and make intelligent investment decisions across real estate, stocks, bonds, commodities, precious metals, and cryptocurrency. This isn't about get-rich-quick schemes—it's about building a financial foundation that creates time, options, and true independence.
+
+Transform your relationship with money and discover how the wealthy think differently about assets, income, and financial freedom.''',
+                'short_description': 'Master the money flow patterns and asset strategies that create true wealth and financial freedom',
             }
         )
         
         if created:
             self.stdout.write(self.style.SUCCESS(f'Created course: {course.name}'))
         else:
-            self.stdout.write(self.style.WARNING(f'Course {course.name} already exists'))
-            # Clear existing lessons if course exists
-            course.lessons.all().delete()
-            self.stdout.write(self.style.WARNING('Cleared existing lessons'))
+            self.stdout.write(f'Course already exists: {course.name}')
         
-        # Create Main Module
-        main_module, _ = Module.objects.get_or_create(
-            course=course,
-            name='Virtual Rockstar™',
-            defaults={'order': 0, 'description': 'Complete Virtual Rockstar course content'}
-        )
-        
-        # All 12 Lessons from the course
+        # Asset Mastery Course Lessons with full content
         lessons_data = [
             {
-                'title': 'Session #1 - Live Streaming',
-                'slug': 'session-1-live-streaming',
+                'title': 'Asset Mastery: The Money Flow That Separates the Wealthy from Everyone Else',
                 'order': 1,
-                'description': 'Learn the fundamentals of live streaming and how to engage your audience in real-time.',
-                'vimeo_duration_seconds': 2520,  # 42 minutes
-                'video_duration': 42,
+                'description': "Most people believe wealth is about how much money you make. That belief quietly keeps them stuck forever. In this lesson, you'll discover why income doesn't create wealth — structure does, and how a single change in how your money flows can completely alter your financial future.",
+                'google_drive_url': 'https://drive.google.com/file/d/1iAjnD-YM35aW2MBcRwacI1nYalnQ5P6u/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Welcome to Asset Mastery.'},
+                    {'type': 'paragraph', 'text': "Before we talk about real estate, stocks, crypto, or any \"exciting\" investments, we need to start with something far more powerful — how money actually moves through your life."},
+                    {'type': 'paragraph', 'text': "Because here's the uncomfortable truth:"},
+                    {'type': 'paragraph', 'text': 'Two people can earn the exact same income and end up in completely different financial realities.'},
+                    {'type': 'paragraph', 'text': 'One builds freedom. The other builds stress.'},
+                    {'type': 'paragraph', 'text': "The difference isn't luck. It isn't intelligence. It's money flow."},
+                    {'type': 'header', 'text': 'Why Most People Start in the Wrong Place', 'level': 2},
+                    {'type': 'paragraph', 'text': 'A common question Daniel gets is:'},
+                    {'type': 'quote', 'text': "\"If you were starting again at 23, what would you invest in first?\"", 'caption': ''},
+                    {'type': 'paragraph', 'text': 'That sounds like a smart question — but it hides a deeper misunderstanding.'},
+                    {'type': 'paragraph', 'text': 'What people are really asking is:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'What asset will save me time?',
+                        'What shortcut gets me ahead faster?'
+                    ]},
+                    {'type': 'paragraph', 'text': 'The hard truth? No asset can save you if your financial foundation is broken.'},
+                    {'type': 'paragraph', 'text': "That's why we start here."},
+                    {'type': 'header', 'text': 'The Financial Statement Most Adults Have Never Truly Understood', 'level': 2},
+                    {'type': 'paragraph', 'text': "Let's break down the Cashflow 101 Financial Statement, created by Robert and Kim Kiyosaki — not as an academic exercise, but as a mirror."},
+                    {'type': 'paragraph', 'text': 'This statement has four parts:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Income – money coming in',
+                        'Expenses – money going out',
+                        'Assets – things that put money into your pocket',
+                        'Liabilities – things that take money out of your pocket'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Simple? Yes. Powerful? Life-changing.'},
+                    {'type': 'paragraph', 'text': 'Because once you see this clearly, you can never unsee it.'},
+                    {'type': 'header', 'text': 'The Three Money Patterns That Define Almost Everyone', 'level': 2},
+                    {'type': 'header', 'text': '1. The "Poor" Pattern (Mindset, not income)', 'level': 3},
+                    {'type': 'paragraph', 'text': 'Money comes in → Money goes out → Nothing remains.'},
+                    {'type': 'paragraph', 'text': "It doesn't matter whether this person earns little or a lot — their money exists only to be spent. Lifestyle expands to match income, and the game resets every month."},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'No buffer.',
+                        'No leverage.',
+                        'No future momentum.'
+                    ]},
+                    {'type': 'header', 'text': '2. The Middle-Class Trap', 'level': 3},
+                    {'type': 'paragraph', 'text': 'This is where most people live.'},
+                    {'type': 'paragraph', 'text': 'Money comes in → Money goes into liabilities → Then expenses are paid → Nothing meaningful is left.'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Bigger house.',
+                        'Nicer car.',
+                        'More subscriptions.',
+                        'More debt.'
+                    ]},
+                    {'type': 'paragraph', 'text': "On paper, it looks successful. On the balance sheet, it's fragile."},
+                    {'type': 'paragraph', 'text': 'This is the life where:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'One missed paycheck causes panic',
+                        'Freedom always feels "a few years away"',
+                        'Retirement becomes a hope, not a plan'
+                    ]},
+                    {'type': 'header', 'text': '3. The Wealthy Pattern', 'level': 3},
+                    {'type': 'paragraph', 'text': "Here's where everything changes."},
+                    {'type': 'paragraph', 'text': 'Money comes in → Money goes into assets first → Assets generate income → Income pays for expenses.'},
+                    {'type': 'paragraph', 'text': 'This person may look ordinary at first — but behind the scenes, they are quietly building machines that produce cash.'},
+                    {'type': 'paragraph', 'text': 'Eventually:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Assets replace income',
+                        'Work becomes optional',
+                        'Time becomes abundant'
+                    ]},
+                    {'type': 'paragraph', 'text': "This isn't magic. It's math + discipline."},
+                    {'type': 'header', 'text': 'The One Line That Changes Everything', 'level': 2},
+                    {'type': 'paragraph', 'text': 'The entire difference between middle-class and wealthy lives comes down to one line on the financial statement.'},
+                    {'type': 'paragraph', 'text': 'Most people send surplus money to:'},
+                    {'type': 'paragraph', 'text': 'Liabilities → expenses → gone'},
+                    {'type': 'paragraph', 'text': 'The wealthy redirect that same money to:'},
+                    {'type': 'paragraph', 'text': 'Assets → income → freedom'},
+                    {'type': 'paragraph', 'text': "That's it. That's the code."},
+                    {'type': 'paragraph', 'text': 'Once you move that line — even slightly — momentum starts working for you instead of against you.'},
+                    {'type': 'header', 'text': 'Why This Is About Freedom (Not Greed)', 'level': 2},
+                    {'type': 'paragraph', 'text': "Assets aren't about yachts or status."},
+                    {'type': 'paragraph', 'text': 'Assets buy:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Time',
+                        'Options',
+                        'Peace of mind',
+                        'The ability to say no'
+                    ]},
+                    {'type': 'paragraph', 'text': 'When money works for you:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'You choose how to spend your days',
+                        'You choose what problems to solve',
+                        'You choose the life you actually want'
+                    ]},
+                    {'type': 'paragraph', 'text': "That's the real return on investment."},
+                    {'type': 'header', 'text': 'Your First Action Step', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Before moving on:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Download the financial statement',
+                        'Write down your real numbers',
+                        'No judgment — just honesty'
+                    ]},
+                    {'type': 'paragraph', 'text': "This isn't about shame. It's about clarity."},
+                    {'type': 'paragraph', 'text': 'Because clarity is where power begins.'},
+                    {'type': 'header', 'text': 'What Comes Next', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Now that you understand how money should flow, the next logical question becomes:'},
+                    {'type': 'quote', 'text': "\"Okay — what assets should I actually build?\"", 'caption': ''},
+                    {'type': 'paragraph', 'text': "That's exactly where we're going next."},
+                    {'type': 'paragraph', 'text': 'And this is where the gold mine starts revealing itself.'},
+                ]
             },
             {
-                'title': 'Smaller Podcast Studio Walk Through',
-                'slug': 'smaller-podcast-studio-walk-through',
+                'title': 'The Asset Universe: Where Wealth Actually Comes From',
                 'order': 2,
-                'description': 'Get a complete walkthrough of setting up a professional podcast studio on any budget.',
-                'vimeo_duration_seconds': 1800,  # 30 minutes
-                'video_duration': 30,
+                'description': "Most people never build wealth because they don't realize how many paths are available. In this lesson, you'll see the full landscape of investable assets — and understand why wealth isn't about choosing \"the best\" one, but choosing the right one for you.",
+                'google_drive_url': 'https://drive.google.com/file/d/17jH7BlryFVv8RRSvlyKRLXuOn-qyONU2/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': "Now that you understand how money should flow, the next question becomes obvious:"},
+                    {'type': 'quote', 'text': 'Where do I send it?', 'caption': ''},
+                    {'type': 'paragraph', 'text': "Most people never get a clear answer to this — which is why they either:"},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Do nothing',
+                        'Follow hype',
+                        "Or copy someone else's strategy without understanding it"
+                    ]},
+                    {'type': 'paragraph', 'text': 'This lesson exists to give you context, not instructions.'},
+                    {'type': 'header', 'text': 'Why There Is No "Best" Asset', 'level': 2},
+                    {'type': 'paragraph', 'text': 'There is no single best investment.'},
+                    {'type': 'paragraph', 'text': 'There is only:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Best for your time horizon',
+                        'Best for your risk tolerance',
+                        'Best for your skills and interest',
+                        'Best for your current stage of life'
+                    ]},
+                    {'type': 'paragraph', 'text': "Wealthy people don't obsess over one asset. They understand categories — and how each plays a role."},
+                    {'type': 'header', 'text': 'The Major Asset Classes Explained Simply', 'level': 2},
+                    {'type': 'header', 'text': 'Real Estate', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Physical property',
+                        'Can produce monthly cash flow',
+                        'Often appreciates over time',
+                        'Highly tax-efficient if structured well'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Think of real estate as slow, heavy, powerful machinery.'},
+                    {'type': 'header', 'text': 'Stocks & Shares', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Ownership in businesses',
+                        'Value grows as companies grow',
+                        'Can pay dividends',
+                        'Extremely liquid (easy to buy and sell)'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Stocks are owning slices of the global economy.'},
+                    {'type': 'header', 'text': 'Bonds', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'You are the lender',
+                        'Predictable returns',
+                        'Lower risk, lower reward',
+                        'Excellent for stability and timing'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Bonds are financial shock absorbers.'},
+                    {'type': 'header', 'text': 'Commodities', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Raw materials that power the world',
+                        'Food, energy, metals',
+                        'Strong inflation hedge',
+                        'Influenced by global supply chains'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Commodities are real-world demand made tradable.'},
+                    {'type': 'header', 'text': 'Precious Metals', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Store of value',
+                        'Hedge against uncertainty',
+                        'Thousands of years of trust'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Metals are wealth preservation tools.'},
+                    {'type': 'header', 'text': 'Cryptocurrency', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Digital assets',
+                        'Decentralized systems',
+                        'High upside, high volatility',
+                        'Requires education and discipline'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Crypto is early-stage financial infrastructure.'},
+                    {'type': 'header', 'text': 'Funds & Indexes', 'level': 3},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Bundles of assets',
+                        'Automatic diversification',
+                        'Lower effort, steady growth'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Funds are wealth-building on autopilot.'},
+                    {'type': 'header', 'text': 'The Real Goal of This Lesson', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Not to overwhelm you.'},
+                    {'type': 'paragraph', 'text': 'But to make you realize:'},
+                    {'type': 'quote', 'text': "\"I don't need to do everything — I just need to start somewhere.\"", 'caption': ''},
+                    {'type': 'paragraph', 'text': 'And now, instead of guessing, you get to choose intelligently.'},
+                ]
             },
             {
-                'title': 'Session #2 - Webinars',
-                'slug': 'session-2-webinars',
+                'title': 'Real Estate: The Asset That Pays You While You Sleep',
                 'order': 3,
-                'description': 'Master the art of creating and hosting high-converting webinars that build your audience and drive sales.',
-                'vimeo_duration_seconds': 2700,  # 45 minutes
-                'video_duration': 45,
+                'description': 'Real estate is one of the few assets that can pay your bills, grow in value, and protect you from inflation — all at the same time. But done wrong, it can also be brutal. This lesson shows you both sides.',
+                'google_drive_url': 'https://drive.google.com/file/d/1xW71ra7LS7KJ-6-0gXi7kh0YtWyV2Qf5/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Real estate is powerful because it does two jobs at once:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'It appreciates over time',
+                        'It generates cash flow'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Most assets do only one.'},
+                    {'type': 'header', 'text': 'Why Property Has Created So Many Fortunes', 'level': 2},
+                    {'type': 'paragraph', 'text': 'When you rent out a property:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Tenants pay your mortgage',
+                        'Inflation raises rents',
+                        'The asset increases in value',
+                        'Debt shrinks while equity grows'
+                    ]},
+                    {'type': 'paragraph', 'text': 'This is called leverage working in your favor.'},
+                    {'type': 'header', 'text': 'Why Real Estate Is Not "Easy Money"', 'level': 2},
+                    {'type': 'paragraph', 'text': "What people don't talk about:"},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Bad tenants',
+                        'Repairs',
+                        'Legal issues',
+                        'Poor locations',
+                        'Bad deal structures'
+                    ]},
+                    {'type': 'paragraph', 'text': "Daniel's £400,000 loss wasn't from property itself — it was from bad guidance."},
+                    {'type': 'paragraph', 'text': 'Lesson:'},
+                    {'type': 'quote', 'text': "Property doesn't forgive ignorance.", 'caption': ''},
+                    {'type': 'header', 'text': 'The Hidden Advantage of Real Estate', 'level': 2},
+                    {'type': 'paragraph', 'text': "It's a team sport."},
+                    {'type': 'paragraph', 'text': 'You can outsource:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Management',
+                        'Repairs',
+                        'Leasing',
+                        'Accounting'
+                    ]},
+                    {'type': 'paragraph', 'text': "You don't need to do everything — you need to structure correctly."},
+                    {'type': 'header', 'text': 'When Real Estate Makes Sense', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Real estate works best when:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'You want stable cash flow',
+                        'You think long-term',
+                        'You have good mentorship',
+                        'You understand your numbers'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Done right, it becomes a financial engine.'},
+                ]
             },
             {
-                'title': 'Session #3 - Challenges',
-                'slug': 'session-3-challenges',
+                'title': "The Stock Market: Owning the World's Best Businesses",
                 'order': 4,
-                'description': 'Learn how to create and run engaging challenges that build community and drive results.',
-                'vimeo_duration_seconds': 2400,  # 40 minutes
-                'video_duration': 40,
+                'description': "The stock market isn't gambling — it's ownership. This lesson reframes stocks from \"charts and numbers\" into what they truly are: pieces of real businesses creating real value.",
+                'google_drive_url': 'https://drive.google.com/file/d/1dWb8HQxwib1tj_v0QfzeygsX-mH2Jziq/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Every stock represents:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'A company',
+                        'With customers',
+                        'Making products',
+                        'Solving problems'
+                    ]},
+                    {'type': 'paragraph', 'text': 'When you buy a stock, you buy ownership, not a lottery ticket.'},
+                    {'type': 'header', 'text': 'Why the Stock Market Exists', 'level': 2},
+                    {'type': 'paragraph', 'text': 'It was created so companies could:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Raise capital',
+                        'Share risk',
+                        'Grow faster'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Investors win when companies win. Losses are shared. Gains are shared.'},
+                    {'type': 'header', 'text': 'How Wealth Is Built in Stocks', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Stocks build wealth through:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Capital appreciation – shares increase in value',
+                        'Dividends – profits paid to owners'
+                    ]},
+                    {'type': 'paragraph', 'text': 'This is how Warren Buffett compounded wealth for decades.'},
+                    {'type': 'header', 'text': 'The Real Risk in Stocks', 'level': 2},
+                    {'type': 'paragraph', 'text': "The biggest danger isn't volatility."},
+                    {'type': 'paragraph', 'text': "It's:"},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Buying without understanding',
+                        'Emotional decisions',
+                        'No strategy',
+                        'No patience'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Education turns risk into calculated probability.'},
+                ]
             },
             {
-                'title': 'Session #4 - Community Engagement Techniques',
-                'slug': 'session-4-community-engagement-techniques',
+                'title': 'Bonds: The Quiet Power Behind Smart Portfolios',
                 'order': 5,
-                'description': 'Discover proven techniques for building and engaging a thriving online community.',
-                'vimeo_duration_seconds': 2100,  # 35 minutes
-                'video_duration': 35,
+                'description': "Bonds don't make headlines — but they quietly protect and amplify intelligent portfolios. This lesson explains why experienced investors never ignore them.",
+                'google_drive_url': 'https://drive.google.com/file/d/16zQ1WNQaea4fhBk7SAjLJ6f-T2V5EdT3/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Bonds are loans where you are the bank.'},
+                    {'type': 'paragraph', 'text': 'Governments and corporations borrow. You earn interest.'},
+                    {'type': 'header', 'text': 'Why Professionals Love Bonds', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Bonds:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Reduce volatility',
+                        'Preserve capital',
+                        'Create timing opportunities'
+                    ]},
+                    {'type': 'paragraph', 'text': 'When markets fall, bonds give you dry powder.'},
+                    {'type': 'header', 'text': 'The Strategic Role of Bonds', 'level': 2},
+                    {'type': 'paragraph', 'text': 'They allow you to:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Earn while waiting',
+                        'Buy assets when prices drop',
+                        'Sleep better during chaos'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Not exciting — but extremely effective.'},
+                ]
             },
             {
-                'title': 'Session #5 - Podcast & Social Audio',
-                'slug': 'session-5-podcast-social-audio',
+                'title': "Commodities: Profiting From the World's Needs",
                 'order': 6,
-                'description': 'Master podcasting and social audio platforms to expand your reach and build authority.',
-                'vimeo_duration_seconds': 2400,  # 40 minutes
-                'video_duration': 40,
+                'description': 'Food, energy, and materials move the planet. This lesson shows how those necessities become investable opportunities.',
+                'google_drive_url': 'https://drive.google.com/file/d/1Ges3rP3vRX-yO4Gh_gpJknJLQXp2BTml/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Commodities exist because:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'People always need food',
+                        'Economies always need energy',
+                        'Supply is never guaranteed'
+                    ]},
+                    {'type': 'header', 'text': 'Why Futures Exist', 'level': 2},
+                    {'type': 'paragraph', 'text': 'They create certainty in an uncertain world:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Farmers lock prices',
+                        'Buyers lock costs',
+                        'Investors step in between'
+                    ]},
+                    {'type': 'paragraph', 'text': "You're trading expectations of the future."},
+                    {'type': 'header', 'text': 'Who Commodities Are For', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Best suited for:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Macro thinkers',
+                        'Inflation hedgers',
+                        'Portfolio diversifiers'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Complex — but powerful.'},
+                ]
             },
             {
-                'title': 'Session #6 - Summits',
-                'slug': 'session-6-summits',
+                'title': 'Precious Metals: Insurance for Your Wealth',
                 'order': 7,
-                'description': 'Learn how to create and host virtual summits that position you as an industry leader.',
-                'vimeo_duration_seconds': 2700,  # 45 minutes
-                'video_duration': 45,
+                'description': "Gold doesn't grow — it protects. This lesson explains why serious investors keep metals in their portfolios even when markets are booming.",
+                'google_drive_url': 'https://drive.google.com/file/d/1sLz3D7QfaI_4gsFyJ2KKCO8yXGcNGh_2/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Gold has survived:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Empires',
+                        'Wars',
+                        'Currencies',
+                        'Financial collapses'
+                    ]},
+                    {'type': 'paragraph', 'text': "That's not hype — that's history."},
+                    {'type': 'header', 'text': 'Why Metals Matter', 'level': 2},
+                    {'type': 'paragraph', 'text': 'They:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Preserve purchasing power',
+                        'Hedge uncertainty',
+                        'Balance risk'
+                    ]},
+                    {'type': 'paragraph', 'text': "They're not about speed — they're about stability."},
+                ]
             },
             {
-                'title': 'Session #7 - Create an Impact - Bonus Session with Alessia Minkus',
-                'slug': 'session-7-create-impact-bonus-alessia-minkus',
+                'title': 'Cryptocurrency: The New Financial Frontier',
                 'order': 8,
-                'description': 'A special bonus session with Alessia Minkus on creating lasting impact in your virtual presence.',
-                'vimeo_duration_seconds': 1800,  # 30 minutes
-                'video_duration': 30,
-            },
-            {
-                'title': 'Powerful Presence Workshop with Michael Visconti',
-                'slug': 'powerful-presence-workshop-michael-visconti',
-                'order': 9,
-                'description': 'Develop a powerful presence that captivates your audience with Michael Visconti.',
-                'vimeo_duration_seconds': 3600,  # 60 minutes
-                'video_duration': 60,
-            },
-            {
-                'title': 'High Ticket Creation Workshop with Alessia Minkus',
-                'slug': 'high-ticket-creation-workshop-alessia-minkus',
-                'order': 10,
-                'description': 'Learn how to create and sell high-ticket offers that transform your business with Alessia Minkus.',
-                'vimeo_duration_seconds': 3600,  # 60 minutes
-                'video_duration': 60,
-            },
-            {
-                'title': 'Zero Dollar Traffic Bootcamp with Kane Minkus',
-                'slug': 'zero-dollar-traffic-bootcamp-kane-minkus',
-                'order': 11,
-                'description': 'Master zero-cost traffic strategies that fill your funnels without spending on ads with Kane Minkus.',
-                'vimeo_duration_seconds': 3600,  # 60 minutes
-                'video_duration': 60,
-            },
-            {
-                'title': 'Copy Writing Intensive',
-                'slug': 'copy-writing-intensive',
-                'order': 12,
-                'description': 'Master the art of copywriting that converts and sells your offers effortlessly.',
-                'vimeo_duration_seconds': 2700,  # 45 minutes
-                'video_duration': 45,
+                'description': 'Crypto is volatile, misunderstood, and powerful. This lesson strips away hype and explains what crypto really is — and why it matters.',
+                'google_drive_url': 'https://drive.google.com/file/d/1fJE2zdQ9-Nd3PN3ZBwq0Ut6LY5GaZQq9/view',
+                'content_sections': [
+                    {'type': 'paragraph', 'text': 'Crypto exists because:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Money loses value',
+                        'Systems are centralized',
+                        'Trust is fragile'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Bitcoin introduced digital scarcity.'},
+                    {'type': 'header', 'text': 'Why Some Crypto Succeeds (and Most Fail)', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Value comes from:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Utility',
+                        'Adoption',
+                        'Infrastructure',
+                        'Trust'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Meme coins fade. Platforms endure.'},
+                    {'type': 'header', 'text': 'The Opportunity & The Danger', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Crypto can:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Multiply wealth',
+                        'Destroy capital'
+                    ]},
+                    {'type': 'paragraph', 'text': 'Knowledge is the difference.'},
+                    {'type': 'header', 'text': 'Final Takeaway', 'level': 2},
+                    {'type': 'paragraph', 'text': 'You now see the entire chessboard.'},
+                    {'type': 'paragraph', 'text': "The goal isn't to master everything — It's to start building assets intentionally."},
+                    {'type': 'paragraph', 'text': 'This is how wealth stops being mysterious and starts becoming inevitable.'},
+                ]
             },
         ]
         
-        # Create all lessons with Google Drive URLs
-        for index, lesson_data in enumerate(lessons_data):
-            # Get corresponding Google Drive URL (using first 12 videos for 12 lessons)
-            google_drive_url = GOOGLE_DRIVE_VIDEOS[index] if index < len(GOOGLE_DRIVE_VIDEOS) else ""
+        # Create or get module
+        module, _ = Module.objects.get_or_create(
+            course=course,
+            name='Asset Mastery Core',
+            defaults={'order': 0, 'description': 'Core content for Asset Mastery course'}
+        )
+        
+        # Create lessons
+        for lesson_data in lessons_data:
+            # Convert content sections to Editor.js blocks if provided
+            content = {}
+            if 'content_sections' in lesson_data:
+                content = self.create_content_blocks(lesson_data['content_sections'])
+            elif 'content' in lesson_data:
+                content = lesson_data['content']
+            
+            slug = self.generate_slug(lesson_data['title'])
+            # Safety check: ensure slug is never longer than 200 (or 50 if migration not run)
+            if len(slug) > 200:
+                slug = slug[:200].rstrip('-')
+            
+            # Extract Google Drive ID from URL
+            google_drive_id = ''
+            google_drive_url = lesson_data.get('google_drive_url', '')
+            if google_drive_url:
+                # Handle both /view and /preview formats
+                if '/d/' in google_drive_url:
+                    google_drive_id = google_drive_url.split('/d/')[1].split('/')[0]
+                    # Convert to preview format if needed
+                    if '/view' in google_drive_url:
+                        google_drive_url = google_drive_url.replace('/view', '/preview')
             
             lesson, created = Lesson.objects.get_or_create(
                 course=course,
-                slug=lesson_data['slug'],
+                slug=slug,
                 defaults={
-                    'module': main_module,
+                    'module': module,
                     'title': lesson_data['title'],
                     'order': lesson_data['order'],
                     'description': lesson_data['description'],
+                    'content': content,
                     'google_drive_url': google_drive_url,
-                    'google_drive_id': google_drive_url.split('/d/')[1].split('/')[0] if '/d/' in google_drive_url else '',
-                    'vimeo_duration_seconds': lesson_data['vimeo_duration_seconds'],
-                    'video_duration': lesson_data['video_duration'],
-                    'ai_generation_status': 'approved',
-                    'ai_clean_title': lesson_data['title'],
-                    'ai_short_summary': lesson_data['description'],
-                    'ai_full_description': f'''{lesson_data['description']}
-
-This session is part of the Virtual Rockstar™ program, designed to help you master virtual presence and digital impact. You'll learn practical strategies, implement key frameworks, and walk away with tangible outputs that move your business forward.
-
-By the end of this session, you'll have actionable insights and a clear path to implementation.''',
-                    'ai_outcomes': [
-                        'Clear action plan for immediate implementation',
-                        'Key frameworks and strategies from the session',
-                        'Personalized insights tailored to your offer',
-                        'Next steps checklist for continued progress'
-                    ],
-                    'ai_coach_actions': [
-                        'Summarize in 5 bullets',
-                        'Turn this into a 3-step action plan',
-                        'Generate 3 email hooks from this content',
-                        'Give me a comprehension quiz'
-                    ],
+                    'google_drive_id': google_drive_id,
+                    'lesson_type': 'video',
+                    'video_duration': 0,
                 }
             )
             if created:
-                self.stdout.write(self.style.SUCCESS(f'  ✓ Created lesson: {lesson.title}'))
+                self.stdout.write(self.style.SUCCESS(f'  Created lesson: {lesson.title}'))
+                # Log content info
+                if content and content.get('blocks'):
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Content: {len(content.get("blocks", []))} blocks'))
             else:
-                # Always update existing lesson with Google Drive URL and other data
-                lesson.google_drive_url = google_drive_url
-                lesson.google_drive_id = google_drive_url.split('/d/')[1].split('/')[0] if '/d/' in google_drive_url else ''
-                lesson.vimeo_duration_seconds = lesson_data['vimeo_duration_seconds']
-                lesson.video_duration = lesson_data['video_duration']
-                lesson.description = lesson_data['description']
-                lesson.order = lesson_data['order']
-                lesson.save()
-                self.stdout.write(self.style.WARNING(f'  ↻ Updated lesson: {lesson.title} with video URL'))
+                # Update existing lesson
+                updated = False
+                if lesson.google_drive_url != google_drive_url:
+                    lesson.google_drive_url = google_drive_url
+                    lesson.google_drive_id = google_drive_id
+                    updated = True
+                if lesson.description != lesson_data['description']:
+                    lesson.description = lesson_data['description']
+                    updated = True
+                # Always update content if provided (to ensure it's saved)
+                if content and content.get('blocks'):
+                    lesson.content = content
+                    updated = True
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Updated content: {len(content.get("blocks", []))} blocks'))
+                if updated:
+                    lesson.save()
+                    self.stdout.write(self.style.WARNING(f'  Updated lesson: {lesson.title}'))
+                else:
+                    self.stdout.write(f'  Lesson already exists: {lesson.title}')
+        
+        self.stdout.write(self.style.SUCCESS(f'\nSeeding completed! Created/updated {len(lessons_data)} lessons for course: {course.name}'))
+        
+        # Create Financial Literacy and Time Management courses if no course_slug is specified (create all courses)
+        if not options.get('course_slug'):
+            self.create_financial_literacy_course()
+            self.create_time_management_course()
+    
+    def create_financial_literacy_course(self):
+        """Create Financial Literacy course with lessons"""
+        self.stdout.write('\n' + '='*60)
+        self.stdout.write('Creating Financial Literacy Course...')
+        self.stdout.write('='*60)
+        
+        # Create or get Financial Literacy course
+        course, created = Course.objects.get_or_create(
+            slug='financial-literacy',
+            defaults={
+                'name': 'Financial Literacy',
+                'course_type': 'sprint',
+                'status': 'active',
+                'visibility': 'public',
+                'enrollment_method': 'open',
+                'description': '''Financial freedom starts with understanding how money works and learning how to intentionally build assets while managing risk.
 
-        self.stdout.write(self.style.SUCCESS('\n✅ Database seeding completed!'))
-        self.stdout.write(self.style.SUCCESS(f'\n📊 Summary:'))
-        self.stdout.write(self.style.SUCCESS(f'   - Course: {course.name}'))
-        self.stdout.write(self.style.SUCCESS(f'   - Lessons: {Lesson.objects.filter(course=course).count()}'))
-        self.stdout.write(self.style.SUCCESS(f'   - All lessons use Google Drive videos'))
-        self.stdout.write(self.style.SUCCESS(f'   - 12 unique videos matched to 12 lessons'))
-        self.stdout.write(self.style.SUCCESS(f'\n🔗 Access your course:'))
-        self.stdout.write(self.style.SUCCESS(f'   Dashboard: http://127.0.0.1:8000/dashboard/'))
-        self.stdout.write(self.style.SUCCESS(f'   Course: http://127.0.0.1:8000/courses/{course.slug}/'))
+This course provides the foundation of financial literacy—the ability to clearly see your financial reality so you can make better decisions and avoid costly mistakes. Learn to think about assets, risk, and long-term decision-making with clarity and confidence.
+
+Without a clear framework for money, decisions are driven by emotion, noise, or incomplete information. This course sets the mental model for everything that follows.''',
+                'short_description': 'Build your financial foundation with clarity, intentionality, and risk awareness',
+            }
+        )
+        
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created course: {course.name}'))
+        else:
+            self.stdout.write(f'Course already exists: {course.name}')
+        
+        # Financial Literacy Course Lessons
+        lessons_data = [
+            {
+                'title': 'Introduction to Financial Literacy & Building Your Financial Foundation',
+                'order': 1,
+                'description': 'Financial freedom starts with understanding how money works and learning how to intentionally build assets while managing risk.',
+                'google_drive_url': 'https://drive.google.com/file/d/18CJfu-JnU7cGQ8O_U_QFusi0BtCmHqiH/view',
+                'content_sections': [
+                    {'type': 'header', 'text': 'Big Idea', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Financial freedom starts with understanding how money works and learning how to intentionally build assets while managing risk.'},
+                    {'type': 'header', 'text': 'What This Lesson Covers', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'What this course is about and how it\'s structured',
+                        'Why financial literacy is the foundation of wealth',
+                        'How to think about assets, risk, and long-term decision-making'
+                    ]},
+                    {'type': 'header', 'text': 'Key Concepts Introduced', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Financial literacy as a skill (not talent)',
+                        'Asset creation vs. income chasing',
+                        'Risk awareness and personal responsibility'
+                    ]},
+                    {'type': 'header', 'text': 'Why This Matters', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Without a clear framework for money, decisions are driven by emotion, noise, or incomplete information. This lesson sets the mental model for everything that follows.'},
+                    {'type': 'header', 'text': 'Action for the Learner', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Write down one reason you joined this course',
+                        'Identify one financial area you want more control over'
+                    ]},
+                    {'type': 'header', 'text': 'Outcome', 'level': 2},
+                    {'type': 'paragraph', 'text': 'The learner understands what financial literacy is and how this course will help them take control of their financial future.'},
+                ]
+            },
+            {
+                'title': 'What Financial Literacy Really Is — And Why It Protects You',
+                'order': 2,
+                'description': 'Financial literacy is the ability to clearly see your financial reality so you can make better decisions and avoid costly mistakes.',
+                'google_drive_url': 'https://drive.google.com/file/d/1m4Hq12Mb5m9jPEhan_kTp2sIjG-P-_3b/view',
+                'content_sections': [
+                    {'type': 'header', 'text': 'Big Idea', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Financial literacy is the ability to clearly see your financial reality so you can make better decisions and avoid costly mistakes.'},
+                    {'type': 'header', 'text': 'What This Lesson Covers', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'The true definition of financial literacy',
+                        'Understanding your financial situation clearly',
+                        'Why lack of literacy leads to bad deals, even in "good" investments'
+                    ]},
+                    {'type': 'header', 'text': 'Key Concepts Introduced', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Income vs. expenses',
+                        'Assets vs. liabilities',
+                        'The personal financial statement'
+                    ]},
+                    {'type': 'header', 'text': 'Why This Matters', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Most people don\'t lose money because investments are bad — they lose money because they don\'t understand the full picture before acting.'},
+                    {'type': 'header', 'text': 'Action for the Learner', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Start a simple financial statement:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Income',
+                        'Expenses',
+                        'Assets',
+                        'Liabilities'
+                    ]},
+                    {'type': 'header', 'text': 'Outcome', 'level': 2},
+                    {'type': 'paragraph', 'text': 'The learner can explain financial literacy in their own words and understands why clarity comes before investing or taking risks.'},
+                ]
+            },
+        ]
+        
+        # Create or get module
+        module, _ = Module.objects.get_or_create(
+            course=course,
+            name='Financial Literacy Core',
+            defaults={'order': 0, 'description': 'Core content for Financial Literacy course'}
+        )
+        
+        # Create lessons
+        for lesson_data in lessons_data:
+            # Convert content sections to Editor.js blocks if provided
+            content = {}
+            if 'content_sections' in lesson_data:
+                content = self.create_content_blocks(lesson_data['content_sections'])
+            elif 'content' in lesson_data:
+                content = lesson_data['content']
+            
+            slug = self.generate_slug(lesson_data['title'])
+            
+            # Extract Google Drive ID from URL
+            google_drive_id = ''
+            google_drive_url = lesson_data.get('google_drive_url', '')
+            if google_drive_url:
+                # Handle both /view and /preview formats
+                if '/d/' in google_drive_url:
+                    google_drive_id = google_drive_url.split('/d/')[1].split('/')[0]
+                    # Convert to preview format if needed
+                    if '/view' in google_drive_url:
+                        google_drive_url = google_drive_url.replace('/view', '/preview')
+            
+            lesson, created = Lesson.objects.get_or_create(
+                course=course,
+                slug=slug,
+                defaults={
+                    'module': module,
+                    'title': lesson_data['title'],
+                    'order': lesson_data['order'],
+                    'description': lesson_data['description'],
+                    'content': content,
+                    'google_drive_url': google_drive_url,
+                    'google_drive_id': google_drive_id,
+                    'lesson_type': 'video',
+                    'video_duration': 0,
+                }
+            )
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'  Created lesson: {lesson.title}'))
+                # Log content info
+                if content and content.get('blocks'):
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Content: {len(content.get("blocks", []))} blocks'))
+            else:
+                # Update existing lesson
+                updated = False
+                if lesson.google_drive_url != google_drive_url:
+                    lesson.google_drive_url = google_drive_url
+                    lesson.google_drive_id = google_drive_id
+                    updated = True
+                if lesson.description != lesson_data['description']:
+                    lesson.description = lesson_data['description']
+                    updated = True
+                # Always update content if provided (to ensure it's saved)
+                if content and content.get('blocks'):
+                    lesson.content = content
+                    updated = True
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Updated content: {len(content.get("blocks", []))} blocks'))
+                if updated:
+                    lesson.save()
+                    self.stdout.write(self.style.WARNING(f'  Updated lesson: {lesson.title}'))
+                else:
+                    self.stdout.write(f'  Lesson already exists: {lesson.title}')
+        
+        self.stdout.write(self.style.SUCCESS(f'\nFinancial Literacy course seeding completed! Created/updated {len(lessons_data)} lessons'))
+    
+    def create_time_management_course(self):
+        """Create Time Management Mastery course with lessons"""
+        self.stdout.write('\n' + '='*60)
+        self.stdout.write('Creating Time Management Mastery Course...')
+        self.stdout.write('='*60)
+        
+        # Create or get Time Management Mastery course
+        course, created = Course.objects.get_or_create(
+            slug='time-management-mastery',
+            defaults={
+                'name': 'Time Management Mastery',
+                'course_type': 'sprint',
+                'status': 'active',
+                'visibility': 'public',
+                'enrollment_method': 'open',
+                'description': '''Small improvements in how you use time compound dramatically — productivity is not about working more hours, but about using the same hours better.
+
+This course teaches you to design leverage in your daily life. Learn how to categorize tasks, build systems that scale, and protect your focus and priorities. Time is fixed. Energy is limited. Systems scale.
+
+If you don't manage time intentionally, it will always be consumed reactively. This course gives you the framework to take control.''',
+                'short_description': 'Design leverage in your daily life with intentional time management and task categorization',
+            }
+        )
+        
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created course: {course.name}'))
+        else:
+            self.stdout.write(f'Course already exists: {course.name}')
+        
+        # Time Management Mastery Course Lessons
+        lessons_data = [
+            {
+                'title': 'Time Management as a Force Multiplier',
+                'order': 1,
+                'description': 'Small improvements in how you use time compound dramatically — productivity is not about working more hours, but about using the same hours better.',
+                'google_drive_url': 'https://drive.google.com/file/d/11n4E-7l7saQFzJLWkuPDtt87mhSBVOvQ/view',
+                'content_sections': [
+                    {'type': 'header', 'text': 'Big Idea', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Small improvements in how you use time compound dramatically — productivity is not about working more hours, but about using the same hours better.'},
+                    {'type': 'header', 'text': 'What This Lesson Covers', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Why time management is one of the highest-leverage life skills',
+                        'The idea of compounding efficiency (1% better each day)',
+                        'Why working longer hours has hard limits',
+                        'How technology, automation, and AI change what\'s possible'
+                    ]},
+                    {'type': 'header', 'text': 'Key Concepts Introduced', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Compounding productivity',
+                        'Efficiency vs. effort',
+                        'Output over hours',
+                        'Principles vs. rigid systems'
+                    ]},
+                    {'type': 'header', 'text': 'Why This Matters', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Time is fixed. Energy is limited. Systems scale.'},
+                    {'type': 'paragraph', 'text': 'If you don\'t manage time intentionally, it will always be consumed reactively.'},
+                    {'type': 'header', 'text': 'Action for the Learner', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Answer this question in writing:'},
+                    {'type': 'quote', 'text': 'If I could get the same results in less time, what would I do with the extra time?', 'caption': ''},
+                    {'type': 'paragraph', 'text': 'Choose one:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Work less',
+                        'Achieve more',
+                        'Reinvest time into growth or freedom'
+                    ]},
+                    {'type': 'header', 'text': 'Outcome', 'level': 2},
+                    {'type': 'paragraph', 'text': 'The learner understands that time management is about designing leverage, not squeezing more work into the day.'},
+                ]
+            },
+            {
+                'title': 'Task Categorization: Building Control Over Your Time',
+                'order': 2,
+                'description': 'You cannot manage time until you clearly see the types of tasks that consume it.',
+                'google_drive_url': 'https://drive.google.com/file/d/18_x5wnvH8fIcxN2enc6UXj9R7Eyqd_Rw/view',
+                'content_sections': [
+                    {'type': 'header', 'text': 'Big Idea', 'level': 2},
+                    {'type': 'paragraph', 'text': 'You cannot manage time until you clearly see the types of tasks that consume it.'},
+                    {'type': 'header', 'text': 'What This Lesson Covers', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Why categorizing tasks is the foundation of time management',
+                        'A simple, practical task classification system',
+                        'How structure reduces stress and increases clarity',
+                        'How better planning protects focus and priorities'
+                    ]},
+                    {'type': 'header', 'text': 'Key Concepts Introduced', 'level': 2},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Daily tasks',
+                        'Weekly tasks',
+                        'Monthly tasks',
+                        'Annual tasks',
+                        'Projects',
+                        'Delegated & follow-up tasks'
+                    ]},
+                    {'type': 'header', 'text': 'Why This Matters', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Most stress comes from holding too much in your head.'},
+                    {'type': 'paragraph', 'text': 'Clarity comes from taking tasks out of your brain and putting them into a system.'},
+                    {'type': 'header', 'text': 'Action for the Learner', 'level': 2},
+                    {'type': 'paragraph', 'text': 'Create six lists:'},
+                    {'type': 'list', 'style': 'unordered', 'items': [
+                        'Daily tasks',
+                        'Weekly tasks',
+                        'Monthly tasks',
+                        'Annual tasks',
+                        'Active projects',
+                        'Delegated / follow-up responsibilities'
+                    ]},
+                    {'type': 'header', 'text': 'Reflection Prompt', 'level': 2},
+                    {'type': 'quote', 'text': 'Which category currently creates the most pressure or chaos in my life?', 'caption': ''},
+                    {'type': 'header', 'text': 'Outcome', 'level': 2},
+                    {'type': 'paragraph', 'text': 'The learner gains a full overview of how their days, weeks, and responsibilities actually function — and where they can regain control.'},
+                ]
+            },
+        ]
+        
+        # Create or get module
+        module, _ = Module.objects.get_or_create(
+            course=course,
+            name='Time Management Core',
+            defaults={'order': 0, 'description': 'Core content for Time Management Mastery course'}
+        )
+        
+        # Create lessons
+        for lesson_data in lessons_data:
+            # Convert content sections to Editor.js blocks if provided
+            content = {}
+            if 'content_sections' in lesson_data:
+                content = self.create_content_blocks(lesson_data['content_sections'])
+            elif 'content' in lesson_data:
+                content = lesson_data['content']
+            
+            slug = self.generate_slug(lesson_data['title'])
+            
+            # Extract Google Drive ID from URL
+            google_drive_id = ''
+            google_drive_url = lesson_data.get('google_drive_url', '')
+            if google_drive_url:
+                # Handle both /view and /preview formats
+                if '/d/' in google_drive_url:
+                    google_drive_id = google_drive_url.split('/d/')[1].split('/')[0]
+                    # Convert to preview format if needed
+                    if '/view' in google_drive_url:
+                        google_drive_url = google_drive_url.replace('/view', '/preview')
+            
+            lesson, created = Lesson.objects.get_or_create(
+                course=course,
+                slug=slug,
+                defaults={
+                    'module': module,
+                    'title': lesson_data['title'],
+                    'order': lesson_data['order'],
+                    'description': lesson_data['description'],
+                    'content': content,
+                    'google_drive_url': google_drive_url,
+                    'google_drive_id': google_drive_id,
+                    'lesson_type': 'video',
+                    'video_duration': 0,
+                }
+            )
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'  Created lesson: {lesson.title}'))
+                # Log content info
+                if content and content.get('blocks'):
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Content: {len(content.get("blocks", []))} blocks'))
+            else:
+                # Update existing lesson
+                updated = False
+                if lesson.google_drive_url != google_drive_url:
+                    lesson.google_drive_url = google_drive_url
+                    lesson.google_drive_id = google_drive_id
+                    updated = True
+                if lesson.description != lesson_data['description']:
+                    lesson.description = lesson_data['description']
+                    updated = True
+                # Always update content if provided (to ensure it's saved)
+                if content and content.get('blocks'):
+                    lesson.content = content
+                    updated = True
+                    self.stdout.write(self.style.SUCCESS(f'    ✓ Updated content: {len(content.get("blocks", []))} blocks'))
+                if updated:
+                    lesson.save()
+                    self.stdout.write(self.style.WARNING(f'  Updated lesson: {lesson.title}'))
+                else:
+                    self.stdout.write(f'  Lesson already exists: {lesson.title}')
+        
+        self.stdout.write(self.style.SUCCESS(f'\nTime Management Mastery course seeding completed! Created/updated {len(lessons_data)} lessons'))

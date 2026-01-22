@@ -1,4 +1,4 @@
-// Main JavaScript for AI Assisted Academy
+// Main JavaScript for Swedish Wealth Institute
 
 // Smooth scrolling
 document.addEventListener('DOMContentLoaded', function() {

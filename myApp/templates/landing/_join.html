@@ -1,5 +1,5 @@
-<!-- 7. Join Us Form (Luxury Checkout - Calm Background) -->
-<section id="join" class="py-28 relative join-bg">
+<!-- 7. Pillars Section -->
+<section id="pillars" class="py-28 relative join-bg">
     <!-- Floating Purple & Blue Blobs -->
     <div class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
       <div class="floating-blob-join blob-join-1 blob-purple"></div>
@@ -61,79 +61,138 @@
     </style>
     
     <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
-        <div class="grid lg:grid-cols-2 gap-20 items-start">
-            <!-- Left: Persuasive Copy -->
-            <div class="space-y-8 pt-4">
-                <h2 class="text-4xl lg:text-5xl font-black">Apply for Membership</h2>
-                <p class="text-lg text-gray-300 leading-relaxed">
-                    We read every application. Tell us about your goals and we'll help you get started on your AI transformation journey.
+        <!-- Header -->
+        <div class="text-center mb-16">
+            <p class="text-[11px] tracking-[0.28em] uppercase text-white/55 mb-4">
+              The Pillars of Personal Power
+            </p>
+            <h2 class="text-4xl lg:text-5xl font-extrabold tracking-[-0.02em] text-white mb-6">
+                Three foundations. One outcome:<br>ownership of your future.
+            </h2>
+            <p class="text-lg text-white/70 max-w-3xl mx-auto leading-relaxed mb-4">
+                We don't overwhelm you with information. We give you the foundations that actually change lives.
+            </p>
+            <p class="text-base text-white/60 max-w-2xl mx-auto">
+                Every experience inside Swedish Wealth Institute is designed to strengthen one thing: your ability to take ownership of your time, your money, and your future.
+            </p>
+        </div>
+
+        <!-- Pillars Grid -->
+        <div class="grid md:grid-cols-3 gap-8 mb-12">
+            <!-- Pillar 1: Assets Mastery -->
+            <div class="glass-card rounded-3xl p-8 border border-cyan-electric/10 hover:bg-white/[0.06] transition">
+                <div class="mb-4">
+                    <span class="text-xs uppercase tracking-widest text-cyan-electric/80">Core pillar</span>
+                    <span class="text-xs text-white/60 ml-2">• Ownership mindset</span>
+                </div>
+                <h3 class="text-2xl lg:text-3xl font-extrabold text-white mb-3">
+                    Assets Mastery
+                </h3>
+                <p class="text-sm text-cyan-electric/80 mb-4 font-semibold">Proof-led</p>
+                <p class="text-lg text-gray-300 mb-4 leading-relaxed">
+                    Build what works for you—even when you're not working.
                 </p>
-                <ul class="space-y-4">
-                    <li class="flex items-start gap-3">
-                        <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
-                        <span class="text-gray-300">Instant access after approval</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
-                        <span class="text-gray-300">Guided lessons + resources</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <i class="fas fa-check-circle text-emerald-glow mt-1"></i>
-                        <span class="text-gray-300">Certification pathway</span>
-                    </li>
-                </ul>
-                
-                <!-- What Happens Next Box -->
-                <div class="glass-card rounded-xl p-6 border border-cyan-electric/20 mt-8">
-                    <h3 class="font-semibold mb-4 text-cyan-electric">What happens next:</h3>
-                    <div class="space-y-3 text-sm text-gray-300">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">1</span>
-                            <span>Submit application</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">2</span>
-                            <span>Confirmation email</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-cyan-electric/20 flex items-center justify-center text-xs font-bold text-cyan-electric">3</span>
-                            <span>Access steps / onboarding</span>
-                        </div>
+                <p class="text-base text-gray-400 mb-6 leading-relaxed">
+                    Shift from income dependency to asset thinking. Assets Mastery is about learning to see money through the lens of ownership.
+                </p>
+                <div class="space-y-3 mb-6 text-sm text-white/70">
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Identify what qualifies as a real asset (and what doesn't).</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Build decision rules that remove emotion from money choices.</span>
                     </div>
                 </div>
+                <div class="rounded-xl border border-cyan-electric/20 bg-cyan-electric/5 p-4 mb-6">
+                    <p class="text-white/90 italic text-sm">
+                        "I'm no longer guessing. I'm building."
+                    </p>
+                </div>
+                <a href="{% url 'login' %}" class="inline-flex items-center justify-center w-full px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold transition-all shadow-lg shadow-cyan-electric/20">
+                    Explore Assets Mastery
+                </a>
             </div>
-            
-            <!-- Right: Form Card (Lighter, Premium) -->
-            <div class="glass-card rounded-2xl p-10 border border-cyan-electric/10">
-                <form class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-semibold mb-3 text-gray-300">Name</label>
-                        <input type="text" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="Your first name">
+
+            <!-- Pillar 2: Financial Literacy -->
+            <div class="glass-card rounded-3xl p-8 border border-cyan-electric/10 hover:bg-white/[0.06] transition">
+                <div class="mb-4">
+                    <span class="text-xs uppercase tracking-widest text-cyan-electric/80">High-trust</span>
+                    <span class="text-xs text-white/60 ml-2">• Clarity & control</span>
+                </div>
+                <h3 class="text-2xl lg:text-3xl font-extrabold text-white mb-3">
+                    Financial Literacy
+                </h3>
+                <p class="text-sm text-cyan-electric/80 mb-4 font-semibold">Practical</p>
+                <p class="text-lg text-gray-300 mb-4 leading-relaxed">
+                    Clarity that replaces fear with confidence.
+                </p>
+                <p class="text-base text-gray-400 mb-6 leading-relaxed">
+                    Money becomes a tool—never a source of stress. Financial Literacy is the foundation of freedom.
+                </p>
+                <div class="space-y-3 mb-6 text-sm text-white/70">
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Understand the rules behind taxes, debt, and cashflow.</span>
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-3 text-gray-300">Surname</label>
-                        <input type="text" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="Your last name">
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Make money decisions that protect your family and future.</span>
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-3 text-gray-300">Email</label>
-                        <input type="email" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all placeholder-gray-600" placeholder="your@email.com">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-3 text-gray-300">
-                            Message <span class="text-gray-500 text-xs font-normal">(max 350 characters)</span>
-                        </label>
-                        <textarea rows="5" maxlength="350" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/10 rounded-xl px-5 py-4 focus:outline-none focus:border-cyan-electric/30 focus:bg-[#0a0e27]/60 transition-all resize-none placeholder-gray-600" placeholder="Tell us about your goals..."></textarea>
-                        <div class="text-xs text-gray-500 mt-2 text-right"><span id="char-count">0</span>/350</div>
-                    </div>
-                    <button type="submit" class="w-full px-8 py-4 bg-gradient-to-r from-emerald-glow to-cyan-electric hover:from-emerald-glow/90 hover:to-cyan-electric/90 text-[#0a0e27] font-bold rounded-xl transition-all shadow-lg shadow-emerald-glow/20">
-                        Submit Application
-                    </button>
-                    <div class="text-xs text-gray-500 text-center pt-4 border-t border-cyan-electric/10 space-y-1">
-                        <p>Your info stays private. Always.</p>
-                        <p>We reply within 24–48 hours.</p>
-                    </div>
-                </form>
+                </div>
+                <div class="rounded-xl border border-cyan-electric/20 bg-cyan-electric/5 p-4 mb-6">
+                    <p class="text-white/90 italic text-sm">
+                        "I finally understand what's happening—and what to do next."
+                    </p>
+                </div>
+                <a href="{% url 'login' %}" class="inline-flex items-center justify-center w-full px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold transition-all shadow-lg shadow-cyan-electric/20">
+                    Explore Financial Literacy
+                </a>
             </div>
+
+            <!-- Pillar 3: Time Management -->
+            <div class="glass-card rounded-3xl p-8 border border-cyan-electric/10 hover:bg-white/[0.06] transition">
+                <div class="mb-4">
+                    <span class="text-xs uppercase tracking-widest text-cyan-electric/80">Momentum</span>
+                    <span class="text-xs text-white/60 ml-2">• Focus & energy</span>
+                </div>
+                <h3 class="text-2xl lg:text-3xl font-extrabold text-white mb-3">
+                    Time Management
+                </h3>
+                <p class="text-sm text-cyan-electric/80 mb-4 font-semibold">High leverage</p>
+                <p class="text-lg text-gray-300 mb-4 leading-relaxed">
+                    Take back your time without burning out.
+                </p>
+                <p class="text-base text-gray-400 mb-6 leading-relaxed">
+                    Align your days with your priorities—not your obligations. Time Management is about reclaiming your most valuable asset.
+                </p>
+                <div class="space-y-3 mb-6 text-sm text-white/70">
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Build a personal operating system that protects your focus.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-electric/60 mt-2 flex-shrink-0"></span>
+                        <span>Eliminate "busy" and create aligned, high-impact days.</span>
+                    </div>
+                </div>
+                <div class="rounded-xl border border-cyan-electric/20 bg-cyan-electric/5 p-4 mb-6">
+                    <p class="text-white/90 italic text-sm">
+                        "My life feels aligned again."
+                    </p>
+                </div>
+                <a href="{% url 'login' %}" class="inline-flex items-center justify-center w-full px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold transition-all shadow-lg shadow-cyan-electric/20">
+                    Explore Time Management
+                </a>
+            </div>
+        </div>
+
+        <!-- Closing Statement -->
+        <div class="text-center mt-12">
+            <p class="text-lg text-white/80 max-w-3xl mx-auto leading-relaxed italic">
+                These are not standalone programs. Together, they form the foundation for a life built with intention, ownership, and impact.
+            </p>
         </div>
     </div>
 </section>
