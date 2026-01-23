@@ -13,3 +13,4 @@ ALTER TABLE myapp_lesson ALTER COLUMN slug TYPE varchar(200);
 -- (This should be handled by the migration, but just in case)
 -- ALTER TABLE myapp_lesson ADD COLUMN IF NOT EXISTS content JSONB DEFAULT '{}'::jsonb;
 
+

@@ -1,74 +1,96 @@
-<!-- 2. Hero Section — Editorial / Cinematic (No Gradient) -->
-<section class="relative pt-32 pb-28 lg:pt-44 lg:pb-40 overflow-hidden bg-black">
+<!-- 2. Hero Section — Cinematic Full-Bleed + Caption Rail (Hero-Material) -->
+<section class="relative min-h-[92vh] lg:min-h-screen overflow-hidden bg-black">
+  <!-- Background -->
+  <div class="absolute inset-0">
+    <img
+      src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769080732/Header_cjkciy.png"
+      alt="Swedish Wealth Institute"
+      class="absolute inset-0 w-full h-full object-cover object-center scale-[1.06]"
+      loading="eager"
+    />
 
-    <!-- Background Image -->
-    <div class="absolute inset-0 z-0 overflow-hidden">
-      <img
-        src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769080732/Header_cjkciy.png"
-        alt="Swedish Wealth Institute"
-        class="absolute inset-0 w-full h-full object-cover"
-        loading="eager"
-      >
-  
-      <!-- Cinematic Dark Scrim (no color) -->
-      <div class="absolute inset-0 bg-black/55"></div>
+    <!-- Cinematic grading (depth, not “flat scrim”) -->
+    <div class="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_15%,rgba(255,255,255,0.10),transparent_60%)]"></div>
+    <div class="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.72),rgba(0,0,0,0.25),rgba(0,0,0,0.80))]"></div>
+    <div class="absolute inset-0 [box-shadow:inset_0_0_240px_rgba(0,0,0,0.88)]"></div>
+
+    <!-- Subtle film grain -->
+    <div class="absolute inset-0 opacity-[0.06] mix-blend-overlay"
+      style="background-image:url('https://grainy-gradients.vercel.app/noise.svg');">
     </div>
-  
-    <!-- Very Subtle Noise Texture -->
-    <div
-      class="absolute inset-0 pointer-events-none z-10 opacity-[0.035]"
-      style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0); background-size: 36px 36px;">
+  </div>
+
+  <!-- Content -->
+  <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-12">
+    <div class="min-h-[92vh] lg:min-h-screen flex items-center">
+      <div class="max-w-3xl pt-24 lg:pt-28">
+        <!-- Micro label -->
+        <div class="inline-flex items-center gap-3 text-[11px] tracking-[0.34em] uppercase text-white/70">
+          <span class="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+          Swedish Wealth Institute
+        </div>
+
+        <!-- Headline: big, cinematic, minimal -->
+        <h1 class="mt-6 text-[2.8rem] sm:text-6xl lg:text-7xl font-extrabold leading-[0.98] tracking-[-0.04em] text-white"
+            style="text-wrap: balance;">
+          Step into a room
+          <span class="block text-white/85">that changes your trajectory.</span>
+        </h1>
+
+        <!-- Subcopy: short (hero needs restraint) -->
+        <p class="mt-6 text-base sm:text-lg lg:text-xl text-white/75 leading-relaxed max-w-2xl"
+           style="text-wrap: balance;">
+          Vetted mentors. High-trust conversations. A global community built for action—without hype, fluff, or noise.
+        </p>
+
+        <!-- Tiny proof line -->
+        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60">
+          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Vetted mentors</span>
+          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> High-trust rooms</span>
+          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Global access</span>
+        </div>
+      </div>
     </div>
-  
-    <!-- Content -->
-    <div class="relative z-20 max-w-7xl mx-auto px-6 lg:px-12">
-      <div class="min-h-[82vh] flex items-center">
-  
-        <!-- Content Block -->
-        <div class="max-w-2xl space-y-8">
-  
-          <!-- Label -->
-          <div class="inline-flex items-center gap-2 text-[11px] tracking-widest uppercase text-white/60">
-            <span class="w-1.5 h-1.5 rounded-full bg-white/50"></span>
-            Premium event audience
+  </div>
+
+  <!-- Bottom Caption Rail (the “hero signature”) -->
+  <div class="absolute inset-x-0 bottom-0 z-20">
+    <div class="max-w-7xl mx-auto px-6 lg:px-12 pb-8 lg:pb-10">
+      <div class="rounded-[28px] bg-white/[0.06] backdrop-blur-2xl ring-1 ring-white/12
+                  shadow-[0_25px_90px_rgba(0,0,0,0.60)]">
+        <div class="px-6 sm:px-8 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <!-- Left: statement -->
+          <div class="space-y-1">
+            <p class="text-sm text-white/70">Truth over trends • Proof over promises</p>
+            <p class="text-white text-lg sm:text-xl font-semibold" style="text-wrap: balance;">
+              The fastest way forward is the right room.
+            </p>
           </div>
-          <div class="text-sm text-white/60 mt-2">
-            Truth over trends • Proof over promises • Connection that moves you
-          </div>
 
-          <!-- Headline -->
-          <h1 class="text-5xl lg:text-7xl font-extrabold leading-[1.02] tracking-[-0.025em] text-white">
-            This isn't just learning.<br>
-            This is your turning point.
-          </h1>
-
-          <!-- Subheadline -->
-          <p class="text-lg lg:text-xl text-white/75 leading-relaxed max-w-xl">
-            Swedish Wealth Institute connects you directly with vetted mentors, world-class conversations, and a global community that turns ambition into momentum—without hype, fluff, or guesswork.
-          </p>
-
-          <!-- CTAs -->
-          <div class="flex flex-col sm:flex-row gap-4 pt-2">
+          <!-- Right: CTAs (harmonized, premium) -->
+          <div class="flex flex-col sm:flex-row gap-3">
             <a href="{% url 'login' %}"
-               class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-white text-black font-semibold shadow-xl shadow-black/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
+               class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white text-black font-semibold
+                      shadow-[0_18px_60px_rgba(0,0,0,0.55)]
+                      transition hover:-translate-y-0.5 hover:shadow-[0_22px_80px_rgba(0,0,0,0.65)]">
               Step Into the Room
             </a>
 
             <a href="#pillars"
-               class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-electric to-purple-accent text-[#0a0e27] font-bold shadow-xl shadow-cyan-electric/40 transition-all duration-300 hover:from-cyan-electric/90 hover:to-purple-accent/90 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-electric/60 relative overflow-hidden group">
-              <span class="relative z-10">Explore the Pillars</span>
-              <div class="absolute inset-0 bg-gradient-to-r from-purple-accent to-cyan-electric opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+               class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white/0 text-white font-semibold
+                      ring-1 ring-white/22 hover:ring-white/35
+                      transition hover:bg-white/[0.06]">
+              Explore the Pillars
             </a>
           </div>
-
-          <!-- Trust Line -->
-          <div class="pt-4 text-sm text-white/55">
-            High-trust • Global access • Vetted mentors only
-          </div>
-  
         </div>
-  
+      </div>
+
+      <!-- Small scroll cue -->
+      <div class="mt-5 flex items-center gap-3 text-xs uppercase tracking-[0.28em] text-white/45">
+        <span class="h-[1px] w-10 bg-white/15"></span>
+        Scroll
       </div>
     </div>
-  </section>
-  
+  </div>
+</section>

@@ -1,163 +1,147 @@
-<!-- 5. About Kane & Alessia (Premium, Lighter, High-Conversion) -->
-<section id="about" class="relative py-28 bg-[#0b0f1a] overflow-hidden">
-    <!-- Soft light backdrop (not too dark) -->
-    <div class="absolute inset-0">
-      <div class="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-transparent"></div>
-      <!-- Floating Purple & Blue Blobs -->
-      <div class="absolute inset-0 pointer-events-none overflow-hidden">
-        <div class="floating-blob-about blob-about-1 blob-purple"></div>
-        <div class="floating-blob-about blob-about-2 blob-blue"></div>
-        <div class="floating-blob-about blob-about-3 blob-purple"></div>
-        <div class="floating-blob-about blob-about-4 blob-blue"></div>
-      </div>
-      
-      <style>
-        .floating-blob-about {
-          position: absolute;
-          filter: blur(75px);
-          opacity: 0.5;
-        }
-        .blob-about-1 {
-          width: 460px;
-          height: 460px;
-          border-radius: 30% 70% 50% 50% / 50% 30% 70% 50%;
-          top: 20%;
-          right: 15%;
-          animation: floatAbout1 20s ease-in-out infinite;
-          background: linear-gradient(135deg, rgba(168, 85, 247, 0.45), rgba(192, 132, 252, 0.3), transparent);
-        }
-        .blob-about-2 {
-          width: 400px;
-          height: 400px;
-          border-radius: 60% 40% 45% 55% / 40% 60% 40% 60%;
-          bottom: 25%;
-          left: 10%;
-          animation: floatAbout2 25s ease-in-out infinite;
-          background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(96, 165, 250, 0.35), transparent);
-        }
-        .blob-about-3 {
-          width: 350px;
-          height: 350px;
-          border-radius: 45% 55% 65% 35% / 55% 45% 55% 45%;
-          top: 5%;
-          left: 30%;
-          animation: floatAbout3 23s ease-in-out infinite;
-          background: linear-gradient(135deg, rgba(147, 51, 234, 0.4), rgba(168, 85, 247, 0.25), transparent);
-        }
-        .blob-about-4 {
-          width: 380px;
-          height: 380px;
-          border-radius: 70% 30% 50% 50% / 30% 70% 30% 70%;
-          bottom: 5%;
-          right: 30%;
-          animation: floatAbout4 27s ease-in-out infinite;
-          background: linear-gradient(135deg, rgba(96, 165, 250, 0.4), rgba(147, 197, 253, 0.3), transparent);
-        }
-        @keyframes floatAbout1 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(-45px, 55px) rotate(180deg); }
-        }
-        @keyframes floatAbout2 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          33% { transform: translate(50px, -35px) rotate(120deg); }
-          66% { transform: translate(-40px, 45px) rotate(240deg); }
-        }
-        @keyframes floatAbout3 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(35px, -50px) rotate(180deg); }
-        }
-        @keyframes floatAbout4 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(-30px, 40px) rotate(90deg); }
-          75% { transform: translate(45px, -30px) rotate(270deg); }
-        }
-      </style>
-      
-      <div class="absolute -top-40 left-1/4 w-[520px] h-[520px] rounded-full bg-white/[0.05] blur-3xl"></div>
-      <div class="absolute -bottom-40 right-1/4 w-[520px] h-[520px] rounded-full bg-white/[0.04] blur-3xl"></div>
+<!-- 5. About Kane & Alessia (Open, Editorial, Best-of-the-Best) -->
+<section id="about" class="relative overflow-hidden bg-[#070A12]">
+  <!-- Background: airy aurora + light rays + subtle grid -->
+  <div class="absolute inset-0 pointer-events-none">
+    <!-- Aurora wash -->
+    <div class="absolute inset-0 opacity-90
+      bg-[radial-gradient(1200px_700px_at_50%_-10%,rgba(255,255,255,0.10),transparent_55%),
+          radial-gradient(900px_700px_at_15%_65%,rgba(99,102,241,0.20),transparent_62%),
+          radial-gradient(900px_700px_at_85%_55%,rgba(168,85,247,0.18),transparent_62%),
+          radial-gradient(700px_500px_at_55%_85%,rgba(56,189,248,0.10),transparent_60%)]">
     </div>
-  
-    <!-- Subtle texture -->
-    <div class="absolute inset-0 pointer-events-none opacity-[0.04]"
-         style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1px, transparent 0); background-size: 38px 38px;">
+
+    <!-- Soft light rays -->
+    <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[1400px] h-[900px] opacity-[0.20]
+      bg-[conic-gradient(from_180deg_at_50%_50%,rgba(255,255,255,0.18),transparent_22%,rgba(255,255,255,0.08),transparent_55%,rgba(255,255,255,0.16))]
+      blur-3xl">
     </div>
-  
-    <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
-      <div class="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
-  
-        <!-- Left Column -->
-        <div class="space-y-10">
-          <!-- Tag -->
-          <p class="text-[11px] tracking-[0.28em] uppercase text-white/55">
+
+    <!-- Ultra subtle grid -->
+    <div class="absolute inset-0 opacity-[0.05]"
+      style="background-image:
+        linear-gradient(to right, rgba(255,255,255,0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.10) 1px, transparent 1px);
+      background-size: 72px 72px;">
+    </div>
+
+    <!-- Top + bottom lift -->
+    <div class="absolute -top-52 left-1/2 -translate-x-1/2 w-[1000px] h-[520px] rounded-full bg-white/[0.06] blur-3xl"></div>
+    <div class="absolute -bottom-72 left-1/2 -translate-x-1/2 w-[1100px] h-[700px] rounded-full bg-white/[0.04] blur-3xl"></div>
+  </div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-24 lg:py-32">
+    <div class="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+
+      <!-- LEFT: Copy (open, airy) -->
+      <div class="space-y-10">
+        <div class="flex items-center gap-4">
+          <span class="h-[1px] w-14 bg-white/15"></span>
+          <p class="text-[11px] tracking-[0.36em] uppercase text-white/55">
             Proof over promises
           </p>
-  
-          <!-- Benefit-led headline -->
-          <h2 class="text-4xl lg:text-5xl font-extrabold tracking-[-0.02em] text-white leading-[1.05]" style="text-wrap: balance;">
-            A movement, not a membership.
+        </div>
+
+        <div class="space-y-5">
+          <h2 class="text-[2.4rem] sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.035em] text-white leading-[1.02]"
+              style="text-wrap: balance;">
+            A movement that feels like freedom.
           </h2>
-  
-          <!-- Positioning copy (warm + premium) -->
-          <p class="text-lg text-white/70 leading-relaxed max-w-xl" style="text-wrap: balance;">
-            No pedestal. No guru energy. Just vetted guidance, bold action, and a community built for leaders.
+
+          <p class="text-base sm:text-lg text-white/70 leading-relaxed max-w-xl"
+             style="text-wrap: balance;">
+            No pedestal. No guru energy. Just clarity, vetted guidance, and a community that makes growth feel lighter—while your results get heavier.
           </p>
-  
-          <!-- Trust Row (clean, not loud) -->
-          <div class="grid sm:grid-cols-2 gap-4">
-            <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-              <p class="text-sm text-white/60 mb-1">Vetted experts only</p>
-              <p class="text-lg font-extrabold text-white">We showcase proof. No hype. No guessing.</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-              <p class="text-sm text-white/60 mb-1">High-trust community</p>
-              <p class="text-lg font-extrabold text-white">You're supported, challenged, and seen.</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-              <p class="text-sm text-white/60 mb-1">Impact through generosity</p>
-              <p class="text-lg font-extrabold text-white">10% reinvested in global education</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-              <p class="text-sm text-white/60 mb-1">Connection through identity</p>
-              <p class="text-lg font-extrabold text-white">People who live growth, not just talk</p>
-            </div>
-          </div>
-  
-          <!-- Quote (premium, short, punchy) -->
-          <div class="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-8">
-            <p class="text-xl lg:text-2xl font-semibold text-white leading-relaxed mb-4" style="text-wrap: balance;">
-              "People don't need more information. They need the right mentor at the right time—and a community that keeps them moving when life gets loud."
-            </p>
-            <p class="text-sm text-white/60">
-              A movement, not a membership. Connection that turns action into momentum.
-            </p>
+        </div>
+
+        <!-- Proof chips (lightweight, not boxed) -->
+        <div class="flex flex-wrap gap-3 max-w-xl">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
+            <span class="h-2 w-2 rounded-full bg-white/60 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+            Vetted experts
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
+            <span class="h-2 w-2 rounded-full bg-white/60 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+            High-trust room
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
+            <span class="h-2 w-2 rounded-full bg-white/60 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+            Action-first guidance
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
+            <span class="h-2 w-2 rounded-full bg-white/60 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+            10% to education
+          </span>
+        </div>
+
+        <!-- Floating manifesto (no card) -->
+        <div class="relative max-w-xl">
+          <div class="absolute -inset-x-10 -inset-y-6 bg-[radial-gradient(700px_220px_at_30%_40%,rgba(255,255,255,0.10),transparent_60%)] blur-2xl -z-10"></div>
+
+          <p class="text-xl sm:text-2xl lg:text-[1.75rem] font-semibold text-white leading-relaxed"
+             style="text-wrap: balance;">
+            “People don’t need more information. They need the right mentor at the right time—and a room that keeps them moving when life gets loud.”
+          </p>
+
+          <div class="mt-4 flex items-center gap-3 text-sm text-white/60">
+            <span class="h-[1px] w-10 bg-white/15"></span>
+            <span>Connection that turns action into momentum.</span>
           </div>
         </div>
-  
-        <!-- Right Column: Image / Brand panel -->
+      </div>
+
+      <!-- RIGHT: Editorial Gallery (no device frame, no boxed feel) -->
+      <div class="relative">
+        <!-- Ambient glow behind image (open, not ringed) -->
+        <div class="absolute -inset-14 bg-[radial-gradient(700px_520px_at_45%_40%,rgba(99,102,241,0.16),transparent_60%),
+                                         radial-gradient(700px_520px_at_65%_70%,rgba(168,85,247,0.12),transparent_60%),
+                                         radial-gradient(650px_500px_at_30%_60%,rgba(255,255,255,0.08),transparent_62%)]
+                    blur-3xl -z-10">
+        </div>
+
+        <!-- Image stage -->
         <div class="relative">
-          <div class="rounded-3xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl shadow-black/40">
-            <div class="p-8 lg:p-10">
-              <img
-                src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769096055/image_iva8iz.png"
-                alt="Swedish Wealth Institute"
-                class="w-full h-auto object-contain"
-                loading="lazy"
-              />
+          <!-- Image -->
+          <div class="relative overflow-hidden rounded-[28px] shadow-[0_40px_120px_rgba(0,0,0,0.65)]">
+            <img
+              src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769096055/image_iva8iz.png"
+              alt="Swedish Wealth Institute"
+              class="w-full h-[420px] sm:h-[480px] lg:h-[560px] object-cover"
+              loading="lazy"
+            />
+
+            <!-- Soft edge fades to make it feel “infinite”, not boxed -->
+            <div class="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_20%,transparent_35%,rgba(7,10,18,0.72)_100%)]"></div>
+            <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#070A12]/95 via-[#070A12]/40 to-transparent"></div>
+
+            <!-- Editorial overlay chips (feel like metadata, not UI cards) -->
+            <div class="absolute top-5 left-5 right-5 flex flex-wrap gap-2">
+              <span class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur-xl ring-1 ring-white/10">
+                In-person circles
+              </span>
+              <span class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur-xl ring-1 ring-white/10">
+                High-trust room
+              </span>
+              <span class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur-xl ring-1 ring-white/10">
+                Real momentum
+              </span>
             </div>
-  
-            <!-- Soft caption area -->
-            <div class="border-t border-white/10 bg-black/20 px-8 py-6">
-              <p class="text-sm text-white/70" style="text-wrap: balance;">
-                A movement for ambitious people building wealth, purpose, and legacy.
+
+            <!-- Caption (inside image, premium) -->
+            <div class="absolute bottom-6 left-6 right-6">
+              <p class="text-white text-xl sm:text-2xl font-semibold leading-tight" style="text-wrap: balance;">
+                A movement for ambitious people
+              </p>
+              <p class="mt-2 text-sm sm:text-base text-white/70 max-w-md" style="text-wrap: balance;">
+                Building wealth, purpose, and legacy—together, with clarity and action.
               </p>
             </div>
           </div>
-  
-          <!-- Subtle accent glow (neutral, not neon) -->
-          <div class="absolute -inset-6 rounded-[32px] bg-white/[0.04] blur-2xl -z-10"></div>
+
+          <!-- Subtle “floating” base shadow to lift it off the page -->
+          <div class="absolute -bottom-10 left-8 right-8 h-20 bg-black/40 blur-2xl -z-20"></div>
         </div>
-  
       </div>
+
     </div>
-  </section>
-  
+  </div>
+</section>
