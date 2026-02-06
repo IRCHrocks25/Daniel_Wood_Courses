@@ -107,9 +107,9 @@
                             {% elif block.type == 'header' %}
                                 <h{{ block.data.level }} class="text-white font-bold mb-4 mt-6 {% if block.data.level == 2 %}text-2xl{% elif block.data.level == 3 %}text-xl{% else %}text-lg{% endif %}">{{ block.data.text }}</h{{ block.data.level }}>
                             {% elif block.type == 'list' %}
-                                <ul class="list-disc list-inside space-y-2 mb-4 {% if block.data.style == 'ordered' %}list-decimal{% endif %}">
+                                <ul class="list-disc list-outside pl-6 space-y-1 mb-4 {% if block.data.style == 'ordered' %}list-decimal{% endif %}">
                                     {% for item in block.data.items %}
-                                        <li class="text-gray-300 leading-relaxed">{{ item }}</li>
+                                        <li class="text-gray-300 leading-normal">{{ item }}</li>
                                     {% endfor %}
                                 </ul>
                             {% elif block.type == 'quote' %}
@@ -734,38 +734,16 @@
                     console.log('Frontend: Response received, length:', cleanResponse.length);
                     
                     // Only try to parse if it's still JSON (shouldn't happen, but just in case)
-                    if (typeof cleanResponse === 'string' && (cleanResponse.trim().startsWith('{') || cleanResponse.trim().startsWith('[')) && !cleanResponse.includes('\n')) {
+                    if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('{') && !cleanResponse.includes('\n')) {
                         try {
                             const parsed = JSON.parse(cleanResponse);
-                            // Handle list responses (e.g., [{'output': '...'}])
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                const firstItem = parsed[0];
-                                if (typeof firstItem === 'object' && firstItem !== null) {
-                                    cleanResponse = firstItem.output || firstItem.Output || firstItem.response || firstItem.Response || firstItem.message || firstItem.Message || firstItem.text || firstItem.Text || firstItem.answer || firstItem.Answer || cleanResponse;
-                                } else if (typeof firstItem === 'string') {
-                                    cleanResponse = firstItem;
-                                } else {
-                                    cleanResponse = String(firstItem);
-                                }
-                            } else if (typeof parsed === 'object' && parsed !== null) {
-                                // Handle dict responses
-                                cleanResponse = parsed.Response || parsed.response || parsed.message || parsed.text || parsed.answer || parsed.output || parsed.Output || cleanResponse;
-                            } else {
-                                cleanResponse = String(parsed);
-                            }
+                            cleanResponse = parsed.Response || parsed.response || parsed.message || parsed.text || parsed.answer || cleanResponse;
                         } catch (e) {
                             // If parsing fails, backend should have handled it, but try extraction as fallback
                             console.warn('Frontend: Still JSON-like, attempting extraction');
-                            // Try to extract output field from list format
-                            const outputMatch = cleanResponse.match(/['"]output['"]\s*:\s*['"]((?:[^"'\\]|\\.|\\n)*)['"]/i);
-                            if (outputMatch && outputMatch[1]) {
-                                cleanResponse = outputMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
-                            } else {
-                                // Try to extract Response field from dict-like string
-                                const responseMatch = cleanResponse.match(/['"]Response['"]\s*:\s*['"]((?:[^"'\\]|\\.|\\n)*)['"]/i);
-                                if (responseMatch && responseMatch[1]) {
-                                    cleanResponse = responseMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
-                                }
+                            const responseMatch = cleanResponse.match(/['"]Response['"]\s*:\s*['"]((?:[^"'\\]|\\.|\\n)*)['"]/i);
+                            if (responseMatch && responseMatch[1]) {
+                                cleanResponse = responseMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
                             }
                         }
                     }

@@ -33,9 +33,7 @@ from .utils.access import has_course_access
 
 
 def home(request):
-    """Home page view - shows landing page for non-authenticated, redirects authenticated users"""
-    if request.user.is_authenticated:
-        return redirect('courses')
+    """Home page view - shows landing page"""
     return render(request, 'landing.html')
 
 
@@ -1412,19 +1410,7 @@ def lesson_chatbot(request, lesson_id):
                 # Log raw response for debugging
                 import logging
                 logger = logging.getLogger(__name__)
-                
-                # Log FULL raw response to terminal (no truncation)
-                print("\n" + "="*80)
-                print(f"WEBHOOK RESPONSE - Lesson {lesson.id}")
-                print("="*80)
-                print(f"Status Code: {response.status_code}")
-                print(f"Response Length: {len(response_text)} characters")
-                print(f"\nFULL RAW RESPONSE:")
-                print(response_text)
-                print("="*80 + "\n")
-                
-                # Also log to logger (may be truncated in some log viewers)
-                logger.info(f"Raw webhook response for lesson {lesson.id} - Full length: {len(response_text)} chars")
+                logger.info(f"Raw webhook response for lesson {lesson.id} (first 500 chars): {response_text[:500]}")
                 logger.info(f"Response headers: {dict(response.headers)}")
                 
                 # Check if it's HTML error page
@@ -1438,92 +1424,52 @@ def lesson_chatbot(request, lesson_id):
                 response_data = None
                 try:
                     response_data = response.json()
-                    print(f"\nPARSED JSON RESPONSE:")
-                    print(json.dumps(response_data, indent=2, ensure_ascii=False))
-                    print("="*80 + "\n")
                     logger.info(f"Parsed JSON response: {response_data}")
                 except (ValueError, json.JSONDecodeError) as e:
-                    # Try to handle Python-style string representations (single quotes)
-                    # Convert single quotes to double quotes for JSON parsing
-                    try:
-                        python_to_json = response_text.replace("'", '"')
-                        response_data = json.loads(python_to_json)
-                        print(f"\nPARSED PYTHON-STYLE RESPONSE AS JSON:")
-                        print(json.dumps(response_data, indent=2, ensure_ascii=False))
-                        print("="*80 + "\n")
-                        logger.info(f"Parsed Python-style response as JSON: {response_data}")
-                    except:
-                        pass
-                    
-                    # If that didn't work, continue to the salvage logic below
-                    if response_data is None:
-                        logger.warning(
-                            f"Failed to parse as JSON: {e}. Raw response (first 1000 chars): {response_text[:1000]}"
-                        )
-                        # Not JSON, treat as plain text / salvage malformed JSON (common when quotes are not escaped)
-                        if response_text and response_text.strip():
-                            cleaned_text = response_text.strip()
-                            import re
+                    logger.warning(
+                        f"Failed to parse as JSON: {e}. Raw response (first 1000 chars): {response_text[:1000]}"
+                    )
+                    # Not JSON, treat as plain text / salvage malformed JSON (common when quotes are not escaped)
+                    if response_text and response_text.strip():
+                        cleaned_text = response_text.strip()
+                        import re
 
-                            # 1) First, try to extract from list format: [{'output': '...'}]
-                            extracted_text = None
-                            # Try to match the list pattern and extract content up to the closing quote and bracket
-                            # This handles both single and double quotes, and captures everything including newlines
-                            list_patterns = [
-                                r'\[\s*\{\s*["\']output["\']\s*:\s*["\']([\s\S]*?)["\']\s*\}\s*\]',  # Standard format
-                                r'\[\s*\{\s*["\']output["\']\s*:\s*["\']([\s\S]*?)\}\s*\]',  # Missing closing quote
-                                r'\[\s*\{\s*["\']output["\']\s*:\s*["\']([^"\']*(?:["\'][^"\']*)*)["\']\s*\}\s*\]',  # Handles quotes inside
-                            ]
-                            for pattern in list_patterns:
-                                list_match = re.search(pattern, cleaned_text, re.IGNORECASE | re.DOTALL)
-                                if list_match and list_match.group(1) and len(list_match.group(1).strip()) > 0:
-                                    extracted_text = list_match.group(1)
+                        # 1) Strong salvage: capture everything between the opening quote after Response/message/text/etc
+                        # and the final quote before the closing brace. This works even if the content contains
+                        # unescaped quotes (which breaks JSON).
+                        key_names = ["Response", "response", "message", "Message", "text", "Text", "answer", "Answer"]
+                        extracted_text = None
+                        for key in key_names:
+                            # Example broken JSON we see:
+                            # { "Response": "Here ... \"Time Management...\" ...\nMore text" }
+                            # But if quotes aren't escaped, json.loads fails; we still want the full value.
+                            pattern = rf'"{re.escape(key)}"\s*:\s*"([\s\S]*)"\s*\}}'
+                            m = re.search(pattern, cleaned_text)
+                            if m and m.group(1) and len(m.group(1).strip()) > 0:
+                                extracted_text = m.group(1)
+                                break
+
+                        # 2) Fallback: try a more conventional (escaped) match
+                        if not extracted_text:
+                            for key in key_names:
+                                pattern = rf'"{re.escape(key)}"\s*:\s*"((?:[^"\\]|\\.)*)"'
+                                m = re.search(pattern, cleaned_text, flags=re.DOTALL)
+                                if m and m.group(1) and len(m.group(1).strip()) > 0:
+                                    extracted_text = m.group(1)
                                     break
-                            
-                            # 2) Strong salvage: capture everything between the opening quote after Response/message/text/etc
-                            # and the final quote before the closing brace. This works even if the content contains
-                            # unescaped quotes (which breaks JSON).
-                            if not extracted_text:
-                                key_names = ["output", "Output", "Response", "response", "message", "Message", "text", "Text", "answer", "Answer"]
-                                for key in key_names:
-                                    # Example broken JSON we see:
-                                    # { "Response": "Here ... \"Time Management...\" ...\nMore text" }
-                                    # But if quotes aren't escaped, json.loads fails; we still want the full value.
-                                    pattern = rf'"{re.escape(key)}"\s*:\s*"([\s\S]*?)"\s*[,\}}]'
-                                    m = re.search(pattern, cleaned_text, re.DOTALL)
-                                    if m and m.group(1) and len(m.group(1).strip()) > 0:
-                                        extracted_text = m.group(1)
-                                        break
 
-                            # 3) Fallback: try a more conventional (escaped) match
-                            if not extracted_text:
-                                key_names = ["output", "Output", "Response", "response", "message", "Message", "text", "Text", "answer", "Answer"]
-                                for key in key_names:
-                                    pattern = rf'"{re.escape(key)}"\s*:\s*"((?:[^"\\]|\\.)*)"'
-                                    m = re.search(pattern, cleaned_text, flags=re.DOTALL)
-                                    if m and m.group(1) and len(m.group(1).strip()) > 0:
-                                        extracted_text = m.group(1)
-                                        break
+                        final_response = extracted_text if extracted_text else cleaned_text
 
-                            final_response = extracted_text if extracted_text else cleaned_text
+                        # Unescape common sequences so the chat looks right
+                        final_response = (
+                            final_response.replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\r", "\r")
+                            .replace('\\"', '"')
+                            .replace("\\'", "'")
+                        ).strip()
 
-                            # Unescape common sequences so the chat looks right
-                            final_response = (
-                                final_response.replace("\\n", "\n")
-                                .replace("\\t", "\t")
-                                .replace("\\r", "\r")
-                                .replace('\\"', '"')
-                                .replace("\\'", "'")
-                            ).strip()
-
-                            # Log salvaged response
-                            print(f"\nSALVAGED RESPONSE (from malformed JSON):")
-                            print(f"Length: {len(final_response)} characters")
-                            print(f"\nFull Content:")
-                            print(final_response)
-                            print("="*80 + "\n")
-
-                            return JsonResponse({'success': True, 'response': final_response})
+                        return JsonResponse({'success': True, 'response': final_response})
 
                     logger.error("Webhook returned empty response text")
                     return JsonResponse({'success': False, 'error': 'Webhook returned empty response'}, status=500)
@@ -1538,39 +1484,8 @@ def lesson_chatbot(request, lesson_id):
                 # Extract AI response (adjust based on actual webhook response format)
                 # Try multiple possible field names
                 ai_response = None
-                
-                # Handle list responses (e.g., [{'output': '...'}])
-                if isinstance(response_data, list) and len(response_data) > 0:
-                    print(f"\nRESPONSE IS A LIST - First item type: {type(response_data[0])}")
-                    first_item = response_data[0]
-                    if isinstance(first_item, dict):
-                        print(f"First item keys: {list(first_item.keys())}")
-                        ai_response = (
-                            first_item.get('output') or 
-                            first_item.get('Output') or 
-                            first_item.get('response') or 
-                            first_item.get('Response') or 
-                            first_item.get('message') or 
-                            first_item.get('Message') or 
-                            first_item.get('text') or 
-                            first_item.get('Text') or 
-                            first_item.get('answer') or 
-                            first_item.get('Answer') or 
-                            first_item.get('content') or
-                            first_item.get('Content') or
-                            None
-                        )
-                        if ai_response:
-                            print(f"Extracted from list[0] - Field used: {[k for k in ['output', 'Output', 'response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content'] if first_item.get(k)][0] if any(first_item.get(k) for k in ['output', 'Output', 'response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content']) else 'None'}")
-                    elif isinstance(first_item, str):
-                        ai_response = first_item
-                        print(f"First item is a string, using directly")
-                
-                # Handle dict responses
-                elif isinstance(response_data, dict):
-                    print(f"\nRESPONSE IS A DICT - Keys: {list(response_data.keys())}")
-                    # Get the value from common field names
-                    raw_value = (
+                if isinstance(response_data, dict):
+                    ai_response = (
                         response_data.get('response') or 
                         response_data.get('Response') or 
                         response_data.get('message') or 
@@ -1586,58 +1501,6 @@ def lesson_chatbot(request, lesson_id):
                         None
                     )
                     
-                    if raw_value:
-                        field_used = [k for k in ['response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content', 'output', 'Output'] if response_data.get(k)][0] if any(response_data.get(k) for k in ['response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content', 'output', 'Output']) else 'None'
-                        print(f"Extracted from dict - Field used: {field_used}, Type: {type(raw_value)}")
-                        
-                        # If the extracted value is a list, extract from it
-                        if isinstance(raw_value, list) and len(raw_value) > 0:
-                            print(f"Value is a list, extracting from first item")
-                            first_item = raw_value[0]
-                            if isinstance(first_item, dict):
-                                ai_response = (
-                                    first_item.get('output') or 
-                                    first_item.get('Output') or 
-                                    first_item.get('response') or 
-                                    first_item.get('Response') or 
-                                    first_item.get('message') or 
-                                    first_item.get('Message') or 
-                                    first_item.get('text') or 
-                                    first_item.get('Text') or 
-                                    first_item.get('answer') or 
-                                    first_item.get('Answer') or 
-                                    first_item.get('content') or
-                                    first_item.get('Content') or
-                                    None
-                                )
-                                if ai_response:
-                                    print(f"Extracted from list[0] - Field: {[k for k in ['output', 'Output', 'response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content'] if first_item.get(k)][0] if any(first_item.get(k) for k in ['output', 'Output', 'response', 'Response', 'message', 'Message', 'text', 'Text', 'answer', 'Answer', 'content', 'Content']) else 'None'}")
-                            elif isinstance(first_item, str):
-                                ai_response = first_item
-                        # If the extracted value is a dict, extract from it
-                        elif isinstance(raw_value, dict):
-                            print(f"Value is a dict, extracting from it")
-                            ai_response = (
-                                raw_value.get('output') or 
-                                raw_value.get('Output') or 
-                                raw_value.get('response') or 
-                                raw_value.get('Response') or 
-                                raw_value.get('message') or 
-                                raw_value.get('Message') or 
-                                raw_value.get('text') or 
-                                raw_value.get('Text') or 
-                                raw_value.get('answer') or 
-                                raw_value.get('Answer') or 
-                                raw_value.get('content') or
-                                raw_value.get('Content') or
-                                None
-                            )
-                        # If it's already a string, use it directly
-                        elif isinstance(raw_value, str):
-                            ai_response = raw_value
-                        else:
-                            ai_response = str(raw_value)
-                    
                     # If still None, try to get the first string value from the dict
                     if ai_response is None:
                         for key, value in response_data.items():
@@ -1645,22 +1508,14 @@ def lesson_chatbot(request, lesson_id):
                                 ai_response = value
                                 break
                 else:
-                    # If it's not a dict or list, convert to string
+                    # If it's not a dict, convert to string
                     ai_response = str(response_data)
                 
                 # If still None, convert entire dict to string
                 if ai_response is None:
                     ai_response = str(response_data)
                 
-                # Log FULL extracted response
-                print(f"\nEXTRACTED AI RESPONSE:")
-                print(f"Type: {type(ai_response)}")
-                print(f"Length: {len(str(ai_response))} characters")
-                print(f"\nFull Content:")
-                print(str(ai_response))
-                print("="*80 + "\n")
-                
-                logger.info(f"Extracted ai_response (type: {type(ai_response)}, length: {len(str(ai_response))} chars)")
+                logger.info(f"Extracted ai_response (type: {type(ai_response)}, value: {str(ai_response)[:200]})")
                 
                 # Clean the response - handle JSON strings and dict-like strings
                 if isinstance(ai_response, str):
@@ -1668,50 +1523,20 @@ def lesson_chatbot(request, lesson_id):
                     if ai_response.strip().startswith('{') or ai_response.strip().startswith('['):
                         try:
                             parsed = json.loads(ai_response)
-                            # Handle list responses
-                            if isinstance(parsed, list) and len(parsed) > 0:
-                                first_item = parsed[0]
-                                if isinstance(first_item, dict):
-                                    ai_response = (
-                                        first_item.get('output') or 
-                                        first_item.get('Output') or 
-                                        first_item.get('response') or 
-                                        first_item.get('Response') or 
-                                        first_item.get('message') or 
-                                        first_item.get('Message') or 
-                                        first_item.get('text') or 
-                                        first_item.get('Text') or 
-                                        first_item.get('answer') or 
-                                        first_item.get('Answer') or 
-                                        ai_response
-                                    )
-                                elif isinstance(first_item, str):
-                                    ai_response = first_item
-                                else:
-                                    ai_response = str(first_item)
-                            # Handle dict responses
-                            elif isinstance(parsed, dict):
-                                ai_response = parsed.get('Response') or parsed.get('response') or parsed.get('message') or parsed.get('text') or parsed.get('answer') or parsed.get('output') or parsed.get('Output') or ai_response
-                            else:
-                                ai_response = str(parsed)
+                            # Extract Response, response, message, text, or answer field
+                            ai_response = parsed.get('Response') or parsed.get('response') or parsed.get('message') or parsed.get('text') or parsed.get('answer') or ai_response
                         except (json.JSONDecodeError, TypeError):
                             # If parsing fails, try to extract quoted text
                             import re
-                            # Try to extract output field from list-like string (e.g., [{'output': '...'}])
-                            # Use a more robust pattern that handles multiline and escaped quotes
-                            output_match = re.search(r"['\"]output['\"]\s*:\s*['\"]((?:[^'\"\\]|\\.|\\n)*)['\"]", ai_response, re.IGNORECASE | re.DOTALL)
-                            if output_match:
-                                ai_response = output_match.group(1).replace('\\n', '\n').replace('\\"', '"').replace("\\'", "'")
+                            # Try to extract Response field from dict-like string
+                            response_match = re.search(r"['\"]Response['\"]\s*:\s*['\"]([^'\"]+)['\"]", ai_response, re.IGNORECASE)
+                            if response_match:
+                                ai_response = response_match.group(1)
                             else:
-                                # Try to extract Response field from dict-like string
-                                response_match = re.search(r"['\"]Response['\"]\s*:\s*['\"]((?:[^'\"\\]|\\.|\\n)*)['\"]", ai_response, re.IGNORECASE | re.DOTALL)
-                                if response_match:
-                                    ai_response = response_match.group(1).replace('\\n', '\n').replace('\\"', '"').replace("\\'", "'")
-                                else:
-                                    # Try to extract output field with multiline support (handles newlines in content)
-                                    multiline_output = re.search(r"['\"]output['\"]\s*:\s*['\"]((?:[^'\"\\]|\\.|\\n)*)['\"]", ai_response, re.IGNORECASE | re.DOTALL)
-                                    if multiline_output:
-                                        ai_response = multiline_output.group(1).replace('\\n', '\n').replace('\\"', '"').replace("\\'", "'")
+                                # Try to extract any quoted text that's longer than 10 chars
+                                quoted_match = re.search(r"['\"]([^'\"]{10,})['\"]", ai_response)
+                                if quoted_match:
+                                    ai_response = quoted_match.group(1)
                 
                 # If response is still empty, try one more time with the full response_text
                 if not ai_response or (isinstance(ai_response, str) and not ai_response.strip()):
@@ -1721,33 +1546,13 @@ def lesson_chatbot(request, lesson_id):
                         # Try to parse it as JSON one more time
                         try:
                             text_parsed = json.loads(response_text)
-                            if isinstance(text_parsed, list) and len(text_parsed) > 0:
-                                first_item = text_parsed[0]
-                                if isinstance(first_item, dict):
-                                    ai_response = (
-                                        first_item.get('output') or 
-                                        first_item.get('Output') or 
-                                        first_item.get('response') or 
-                                        first_item.get('Response') or 
-                                        first_item.get('message') or 
-                                        first_item.get('Message') or 
-                                        first_item.get('text') or 
-                                        first_item.get('Text') or 
-                                        first_item.get('answer') or 
-                                        first_item.get('Answer') or 
-                                        str(first_item)
-                                    )
-                                elif isinstance(first_item, str):
-                                    ai_response = first_item
-                                else:
-                                    ai_response = str(first_item)
-                            elif isinstance(text_parsed, dict):
-                                ai_response = text_parsed.get('response') or text_parsed.get('Response') or text_parsed.get('message') or text_parsed.get('Message') or text_parsed.get('text') or text_parsed.get('Text') or text_parsed.get('answer') or text_parsed.get('Answer') or text_parsed.get('output') or text_parsed.get('Output') or str(text_parsed)
+                            if isinstance(text_parsed, dict):
+                                ai_response = text_parsed.get('response') or text_parsed.get('Response') or text_parsed.get('message') or text_parsed.get('Message') or text_parsed.get('text') or text_parsed.get('Text') or text_parsed.get('answer') or text_parsed.get('Answer') or str(text_parsed)
                             else:
                                 ai_response = str(text_parsed)
                         except:
-                            # If it's not JSON, use it as plain text (no truncation)
-                            ai_response = response_text
+                            # If it's not JSON, use it as plain text
+                            ai_response = response_text[:500]
                 
                 # Ensure we have a clean string response
                 if not ai_response or (isinstance(ai_response, str) and (not ai_response.strip() or ai_response.strip().startswith('{'))):
@@ -1757,14 +1562,7 @@ def lesson_chatbot(request, lesson_id):
                         'error': 'The AI chatbot did not return a valid response. Please try again.'
                     }, status=500)
                 
-                # Log FINAL response before sending to frontend
-                print(f"\nFINAL AI RESPONSE (sending to frontend):")
-                print(f"Length: {len(str(ai_response))} characters")
-                print(f"\nFull Content:")
-                print(str(ai_response))
-                print("="*80 + "\n")
-                
-                logger.info(f"Final ai_response - Length: {len(str(ai_response))} chars")
+                logger.info(f"Final ai_response: {str(ai_response)[:200]}")
                 
                 return JsonResponse({
                     'success': True,
