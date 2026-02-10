@@ -1423,6 +1423,10 @@ def lesson_chatbot(request, lesson_id):
         # Use the chatbot webhook
         chatbot_webhook_url = 'https://katalyst-crm2.fly.dev/webhook/swi-chatbot'
         
+        # Ensure we have a Django session and attach its ID
+        if not request.session.session_key:
+            request.session.save()
+        
         payload = {
             'message': user_message,
             'lesson_id': lesson.id,
@@ -1430,6 +1434,7 @@ def lesson_chatbot(request, lesson_id):
             'course_name': lesson.course.name,
             'user_id': request.user.id,
             'user_email': request.user.email,
+            'session_id': request.session.session_key,
             'chatbot_webhook_id': lesson.ai_chatbot_webhook_id,  # If webhook needs specific ID
         }
         
@@ -1452,6 +1457,18 @@ def lesson_chatbot(request, lesson_id):
                 logger.info(f"Raw webhook response for lesson {lesson.id} (first 500 chars): {response_text[:500]}")
                 logger.info(f"Response headers: {dict(response.headers)}")
                 
+                # Print to terminal for debugging
+                print("\n" + "="*80)
+                print(f"AI CHATBOT RESPONSE - Lesson {lesson.id}")
+                print("="*80)
+                print(f"User message: {user_message}")
+                print(f"Session ID: {request.session.session_key}")
+                print(f"User ID: {request.user.id}")
+                print(f"User Email: {request.user.email}")
+                print(f"\nRaw webhook response (full):")
+                print(response_text)
+                print(f"\nResponse length: {len(response_text)} characters")
+                
                 # Check if it's HTML error page
                 if response_text.strip().startswith('<!DOCTYPE') or response_text.strip().startswith('<html'):
                     return JsonResponse({
@@ -1464,6 +1481,8 @@ def lesson_chatbot(request, lesson_id):
                 try:
                     response_data = response.json()
                     logger.info(f"Parsed JSON response: {response_data}")
+                    print(f"\nParsed JSON response:")
+                    print(json.dumps(response_data, indent=2))
                 except (ValueError, json.JSONDecodeError) as e:
                     logger.warning(
                         f"Failed to parse as JSON: {e}. Raw response (first 1000 chars): {response_text[:1000]}"
@@ -1508,6 +1527,14 @@ def lesson_chatbot(request, lesson_id):
                             .replace("\\'", "'")
                         ).strip()
 
+                        # Print final cleaned response to terminal
+                        print(f"\nExtracted AI response (from non-JSON fallback):")
+                        print("-"*80)
+                        print(final_response)
+                        print("-"*80)
+                        print(f"Final response length: {len(final_response)} characters")
+                        print("="*80 + "\n")
+
                         return JsonResponse({'success': True, 'response': final_response})
 
                     logger.error("Webhook returned empty response text")
@@ -1525,7 +1552,11 @@ def lesson_chatbot(request, lesson_id):
                 ai_response = None
                 if isinstance(response_data, list) and len(response_data) > 0:
                     # Handle list format like [{'output': '...'}]
+                    print(f"\nDetected LIST format response")
+                    print(f"List length: {len(response_data)}")
                     first_item = response_data[0]
+                    print(f"First item type: {type(first_item)}")
+                    print(f"First item: {first_item}")
                     if isinstance(first_item, dict):
                         ai_response = (
                             first_item.get('output') or
@@ -1542,9 +1573,19 @@ def lesson_chatbot(request, lesson_id):
                             first_item.get('Content') or
                             None
                         )
+                        print(f"Extracted from list item: {ai_response[:200] if ai_response else 'None'}...")
+                        if ai_response is None:
+                            print(f"WARNING: Could not extract from list item, using str(first_item)")
+                            ai_response = str(first_item)
                     elif isinstance(first_item, str):
                         ai_response = first_item
+                        print(f"Using string from list: {ai_response[:200]}...")
+                    else:
+                        print(f"WARNING: First item is not dict or string, converting to string")
+                        ai_response = str(first_item)
                 elif isinstance(response_data, dict):
+                    print(f"\nDetected DICT format response")
+                    print(f"Dict keys: {list(response_data.keys())}")
                     ai_response = (
                         response_data.get('response') or 
                         response_data.get('Response') or 
@@ -1563,10 +1604,14 @@ def lesson_chatbot(request, lesson_id):
                     
                     # If still None, try to get the first string value from the dict
                     if ai_response is None:
+                        print("No standard keys found, searching for first string value...")
                         for key, value in response_data.items():
                             if isinstance(value, str) and value.strip():
                                 ai_response = value
+                                print(f"Found string value in key '{key}'")
                                 break
+                    else:
+                        print(f"Extracted from dict: {ai_response[:200] if ai_response else 'None'}...")
                 else:
                     # If it's not a dict or list, convert to string
                     ai_response = str(response_data)
@@ -1583,8 +1628,32 @@ def lesson_chatbot(request, lesson_id):
                     if ai_response.strip().startswith('{') or ai_response.strip().startswith('['):
                         try:
                             parsed = json.loads(ai_response)
-                            # Extract Response, response, message, text, or answer field
-                            ai_response = parsed.get('Response') or parsed.get('response') or parsed.get('message') or parsed.get('text') or parsed.get('answer') or ai_response
+                            # Handle list format
+                            if isinstance(parsed, list) and len(parsed) > 0:
+                                first_item = parsed[0]
+                                if isinstance(first_item, dict):
+                                    ai_response = (
+                                        first_item.get('output') or
+                                        first_item.get('Output') or
+                                        first_item.get('response') or
+                                        first_item.get('Response') or
+                                        first_item.get('message') or
+                                        first_item.get('Message') or
+                                        first_item.get('text') or
+                                        first_item.get('Text') or
+                                        first_item.get('answer') or
+                                        first_item.get('Answer') or
+                                        str(first_item)
+                                    )
+                                elif isinstance(first_item, str):
+                                    ai_response = first_item
+                                else:
+                                    ai_response = str(first_item)
+                            # Handle dict format
+                            elif isinstance(parsed, dict):
+                                ai_response = parsed.get('Response') or parsed.get('response') or parsed.get('message') or parsed.get('text') or parsed.get('answer') or parsed.get('output') or parsed.get('Output') or ai_response
+                            else:
+                                ai_response = str(parsed)
                         except (json.JSONDecodeError, TypeError):
                             # If parsing fails, try to extract quoted text
                             import re
@@ -1606,8 +1675,29 @@ def lesson_chatbot(request, lesson_id):
                         # Try to parse it as JSON one more time
                         try:
                             text_parsed = json.loads(response_text)
-                            if isinstance(text_parsed, dict):
-                                ai_response = text_parsed.get('response') or text_parsed.get('Response') or text_parsed.get('message') or text_parsed.get('Message') or text_parsed.get('text') or text_parsed.get('Text') or text_parsed.get('answer') or text_parsed.get('Answer') or str(text_parsed)
+                            if isinstance(text_parsed, list) and len(text_parsed) > 0:
+                                # Handle list format
+                                first_item = text_parsed[0]
+                                if isinstance(first_item, dict):
+                                    ai_response = (
+                                        first_item.get('output') or
+                                        first_item.get('Output') or
+                                        first_item.get('response') or
+                                        first_item.get('Response') or
+                                        first_item.get('message') or
+                                        first_item.get('Message') or
+                                        first_item.get('text') or
+                                        first_item.get('Text') or
+                                        first_item.get('answer') or
+                                        first_item.get('Answer') or
+                                        str(first_item)
+                                    )
+                                elif isinstance(first_item, str):
+                                    ai_response = first_item
+                                else:
+                                    ai_response = str(first_item)
+                            elif isinstance(text_parsed, dict):
+                                ai_response = text_parsed.get('response') or text_parsed.get('Response') or text_parsed.get('message') or text_parsed.get('Message') or text_parsed.get('text') or text_parsed.get('Text') or text_parsed.get('answer') or text_parsed.get('Answer') or text_parsed.get('output') or text_parsed.get('Output') or str(text_parsed)
                             else:
                                 ai_response = str(text_parsed)
                         except:
@@ -1617,24 +1707,91 @@ def lesson_chatbot(request, lesson_id):
                 # Ensure we have a clean string response
                 if not ai_response or (isinstance(ai_response, str) and (not ai_response.strip() or ai_response.strip().startswith('{'))):
                     logger.error(f"Still empty after all attempts.")
+                    print(f"\n{'='*80}")
+                    print(f"ERROR: Could not extract valid response after all attempts")
+                    print(f"ai_response value: {ai_response}")
+                    print(f"ai_response type: {type(ai_response)}")
+                    print(f"{'='*80}\n")
                     return JsonResponse({
                         'success': False,
                         'error': 'The AI chatbot did not return a valid response. Please try again.'
                     }, status=500)
                 
+                # Ensure ai_response is a string, not a list or dict
+                if isinstance(ai_response, list):
+                    print(f"WARNING: ai_response is still a list, extracting text...")
+                    if len(ai_response) > 0:
+                        first_item = ai_response[0]
+                        if isinstance(first_item, dict):
+                            ai_response = (
+                                first_item.get('output') or
+                                first_item.get('Output') or
+                                first_item.get('response') or
+                                first_item.get('Response') or
+                                first_item.get('message') or
+                                first_item.get('Message') or
+                                first_item.get('text') or
+                                first_item.get('Text') or
+                                first_item.get('answer') or
+                                first_item.get('Answer') or
+                                str(first_item)
+                            )
+                        elif isinstance(first_item, str):
+                            ai_response = first_item
+                        else:
+                            ai_response = str(first_item)
+                    else:
+                        ai_response = str(ai_response)
+                elif isinstance(ai_response, dict):
+                    print(f"WARNING: ai_response is still a dict, extracting text...")
+                    ai_response = (
+                        ai_response.get('output') or
+                        ai_response.get('Output') or
+                        ai_response.get('response') or
+                        ai_response.get('Response') or
+                        ai_response.get('message') or
+                        ai_response.get('Message') or
+                        ai_response.get('text') or
+                        ai_response.get('Text') or
+                        ai_response.get('answer') or
+                        ai_response.get('Answer') or
+                        str(ai_response)
+                    )
+                
+                # Final conversion to string
+                if not isinstance(ai_response, str):
+                    ai_response = str(ai_response)
+                
                 logger.info(f"Final ai_response: {str(ai_response)[:200]}")
+                
+                # Print final cleaned response to terminal
+                print(f"\nExtracted AI response:")
+                print("-"*80)
+                print(ai_response)
+                print("-"*80)
+                print(f"Final response length: {len(ai_response)} characters")
+                print(f"Final response type: {type(ai_response)}")
+                print("="*80 + "\n")
                 
                 return JsonResponse({
                     'success': True,
-                    'response': str(ai_response)
+                    'response': ai_response
                 })
             else:
+                print(f"\n{'='*80}")
+                print(f"ERROR: Chatbot webhook returned status {response.status_code}")
+                print(f"Response text: {response.text[:500]}")
+                print(f"{'='*80}\n")
                 return JsonResponse({
                     'success': False,
                     'error': f'Chatbot webhook returned error: {response.status_code}'
                 }, status=500)
                 
         except requests.exceptions.RequestException as e:
+            print(f"\n{'='*80}")
+            print(f"ERROR: Failed to connect to chatbot webhook")
+            print(f"Error: {str(e)}")
+            print(f"{'='*80}\n")
             return JsonResponse({
                 'success': False,
                 'error': f'Failed to connect to chatbot webhook: {str(e)}'

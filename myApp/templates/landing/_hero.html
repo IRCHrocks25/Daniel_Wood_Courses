@@ -1,4 +1,4 @@
-<!-- 2. Hero Section — Cinematic Full-Bleed + Caption Rail (Hero-Material) -->
+<!-- 2. Hero Section — Cinematic Full-Bleed + Caption Rail (Fixed Layout) -->
 <section class="relative min-h-[92vh] lg:min-h-screen overflow-hidden bg-black">
   <!-- Background -->
   <div class="absolute inset-0">
@@ -9,87 +9,109 @@
       loading="eager"
     />
 
-    <!-- Cinematic grading (depth, not “flat scrim”) -->
+    <!-- Cinematic grading -->
     <div class="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_15%,rgba(255,255,255,0.10),transparent_60%)]"></div>
     <div class="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.72),rgba(0,0,0,0.25),rgba(0,0,0,0.80))]"></div>
     <div class="absolute inset-0 [box-shadow:inset_0_0_240px_rgba(0,0,0,0.88)]"></div>
 
     <!-- Subtle film grain -->
-    <div class="absolute inset-0 opacity-[0.06] mix-blend-overlay"
-      style="background-image:url('https://grainy-gradients.vercel.app/noise.svg');">
-    </div>
+    <div
+      class="absolute inset-0 opacity-[0.06] mix-blend-overlay"
+      style="background-image:url('https://grainy-gradients.vercel.app/noise.svg');"
+    ></div>
   </div>
 
-  <!-- Content -->
+  <!-- Layout: 2-row grid (content + rail) -->
   <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-12">
-    <div class="min-h-[92vh] lg:min-h-screen flex items-center">
-      <div class="max-w-3xl pt-24 lg:pt-28">
-        <!-- Micro label -->
-        <div class="inline-flex items-center gap-3 text-[11px] tracking-[0.34em] uppercase text-white/70">
-          <span class="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
-          Swedish Wealth Institute
-        </div>
-
-        <!-- Headline: big, cinematic, minimal -->
-        <h1 class="mt-6 text-[2.8rem] sm:text-6xl lg:text-7xl font-extrabold leading-[0.98] tracking-[-0.04em] text-white"
-            style="text-wrap: balance;">
-          Step into a room
-          <span class="block text-white/85">that changes your trajectory.</span>
-        </h1>
-
-        <!-- Subcopy: short (hero needs restraint) -->
-        <p class="mt-6 text-base sm:text-lg lg:text-xl text-white/75 leading-relaxed max-w-2xl"
-           style="text-wrap: balance;">
-          Vetted mentors. High-trust conversations. A global community built for action—without hype, fluff, or noise.
-        </p>
-
-        <!-- Tiny proof line -->
-        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60">
-          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Vetted mentors</span>
-          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> High-trust rooms</span>
-          <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Global access</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bottom Caption Rail (the “hero signature”) -->
-  <div class="absolute inset-x-0 bottom-0 z-20">
-    <div class="max-w-7xl mx-auto px-6 lg:px-12 pb-8 lg:pb-10">
-      <div class="rounded-[28px] bg-white/[0.06] backdrop-blur-2xl ring-1 ring-white/12
-                  shadow-[0_25px_90px_rgba(0,0,0,0.60)]">
-        <div class="px-6 sm:px-8 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <!-- Left: statement -->
-          <div class="space-y-1">
-            <p class="text-sm text-white/70">Truth over trends • Proof over promises</p>
-            <p class="text-white text-lg sm:text-xl font-semibold" style="text-wrap: balance;">
-              The fastest way forward is the right room.
-            </p>
+    <div class="min-h-[92vh] lg:min-h-screen grid grid-rows-[1fr_auto]">
+      <!-- Row 1: Hero Content -->
+      <div class="flex items-center">
+        <div class="max-w-3xl pt-20 sm:pt-24 lg:pt-28 pb-10 lg:pb-12">
+          <!-- Logo -->
+          <div class="mb-6">
+            <img
+              src="https://res.cloudinary.com/dcuswyfur/image/upload/v1769099735/Frame_82_a2yvmn.png"
+              alt="Swedish Wealth Institute Logo"
+              class="h-12 sm:h-16 w-auto"
+              loading="eager"
+            />
           </div>
 
-          <!-- Right: CTAs (harmonized, premium) -->
-          <div class="flex flex-col sm:flex-row gap-3">
-            <a href="{% url 'login' %}"
-               class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white text-black font-semibold
-                      shadow-[0_18px_60px_rgba(0,0,0,0.55)]
-                      transition hover:-translate-y-0.5 hover:shadow-[0_22px_80px_rgba(0,0,0,0.65)]">
-              Step Into the Room
-            </a>
+          <!-- Micro label -->
+          <div class="inline-flex items-center gap-3 text-[11px] tracking-[0.34em] uppercase text-white/70">
+            <span class="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,0.22)]"></span>
+            Swedish Wealth Institute
+          </div>
 
-            <a href="#pillars"
-               class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white/0 text-white font-semibold
-                      ring-1 ring-white/22 hover:ring-white/35
-                      transition hover:bg-white/[0.06]">
-              Explore the Pillars
-            </a>
+          <!-- Headline -->
+          <h1
+            class="mt-6 text-[2.4rem] sm:text-6xl lg:text-7xl font-extrabold leading-[0.98] tracking-[-0.04em] text-white"
+            style="text-wrap: balance;"
+          >
+            Step into a room
+            <span class="block text-white/85">that changes your trajectory.</span>
+          </h1>
+
+          <!-- Subcopy -->
+          <p
+            class="mt-6 text-base sm:text-lg lg:text-xl text-white/75 leading-relaxed max-w-2xl"
+            style="text-wrap: balance;"
+          >
+            Vetted mentors. High-trust conversations. A global community built for action—without hype, fluff, or noise.
+          </p>
+
+          <!-- Tiny proof line -->
+          <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60">
+            <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Vetted mentors</span>
+            <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> High-trust rooms</span>
+            <span class="inline-flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-white/60"></span> Global access</span>
           </div>
         </div>
       </div>
 
-      <!-- Small scroll cue -->
-      <div class="mt-5 flex items-center gap-3 text-xs uppercase tracking-[0.28em] text-white/45">
-        <span class="h-[1px] w-10 bg-white/15"></span>
-        Scroll
+      <!-- Row 2: Caption Rail (no absolute positioning) -->
+      <div class="pb-8 lg:pb-10">
+        <div
+          class="rounded-[28px] bg-white/[0.06] backdrop-blur-2xl ring-1 ring-white/12
+                 shadow-[0_25px_90px_rgba(0,0,0,0.60)]"
+        >
+          <div class="px-6 sm:px-8 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <!-- Left: statement -->
+            <div class="space-y-1">
+              <p class="text-sm text-white/70">Truth over trends • Proof over promises</p>
+              <p class="text-white text-lg sm:text-xl font-semibold" style="text-wrap: balance;">
+                The fastest way forward is the right room.
+              </p>
+            </div>
+
+            <!-- Right: CTAs -->
+            <div class="flex flex-col sm:flex-row gap-3">
+              <a
+                href="{% url 'login' %}"
+                class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white text-black font-semibold
+                       shadow-[0_18px_60px_rgba(0,0,0,0.55)]
+                       transition hover:-translate-y-0.5 hover:shadow-[0_22px_80px_rgba(0,0,0,0.65)]"
+              >
+                Step Into the Room
+              </a>
+
+              <a
+                href="#pillars"
+                class="inline-flex items-center justify-center px-7 py-4 rounded-2xl bg-white/0 text-white font-semibold
+                       ring-1 ring-white/22 hover:ring-white/35
+                       transition hover:bg-white/[0.06]"
+              >
+                Explore the Pillars
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Small scroll cue -->
+        <div class="mt-5 flex items-center gap-3 text-xs uppercase tracking-[0.28em] text-white/45">
+          <span class="h-[1px] w-10 bg-white/15"></span>
+          Scroll
+        </div>
       </div>
     </div>
   </div>

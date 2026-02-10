@@ -725,49 +725,68 @@
                 thinkingMessage.remove();
             }
             
+            // Log the complete raw response from backend
+            console.log('=== AI RESPONSE DEBUG ===');
+            console.log('Full response object:', JSON.stringify(data, null, 2));
+            console.log('Response type:', typeof data);
+            console.log('Response keys:', Object.keys(data));
+            
             if (useLessonChatbot) {
                 // Lesson-specific chatbot response format (same as test chatbot)
                 if (data.success) {
                     // Backend already cleaned the response, so use it directly
                     let cleanResponse = data.response || data.message || data.text || data.answer || '';
                     
-                    console.log('Frontend: Response received, length:', cleanResponse.length);
+                    console.log('Frontend: Raw response received');
+                    console.log('Response value:', cleanResponse);
+                    console.log('Response length:', cleanResponse.length);
+                    console.log('Response type:', typeof cleanResponse);
                     
                     // Handle list format like [{'output': '...'}]
                     if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('[')) {
+                        console.log('Detected list format response');
                         try {
                             const parsed = JSON.parse(cleanResponse);
+                            console.log('Parsed list:', parsed);
                             if (Array.isArray(parsed) && parsed.length > 0) {
                                 const firstItem = parsed[0];
+                                console.log('First item:', firstItem);
                                 if (typeof firstItem === 'object' && firstItem !== null) {
                                     cleanResponse = firstItem.output || firstItem.Output || firstItem.response || firstItem.Response || 
                                                    firstItem.message || firstItem.Message || firstItem.text || firstItem.Text || 
                                                    firstItem.answer || firstItem.Answer || cleanResponse;
+                                    console.log('Extracted from list item:', cleanResponse);
                                 } else if (typeof firstItem === 'string') {
                                     cleanResponse = firstItem;
+                                    console.log('Using string from list:', cleanResponse);
                                 }
                             }
                         } catch (e) {
                             // If parsing fails, try regex extraction
-                            console.warn('Frontend: Failed to parse list response, attempting extraction');
+                            console.warn('Frontend: Failed to parse list response, attempting extraction', e);
                             const listMatch = cleanResponse.match(/\[\s*\{\s*['"]output['"]\s*:\s*['"]([^'"]+)['"]/i);
                             if (listMatch && listMatch[1]) {
                                 cleanResponse = listMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
+                                console.log('Extracted via regex:', cleanResponse);
                             }
                         }
                     }
                     // Handle dict format like {'Response': '...'} or {'output': '...'}
                     else if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('{') && !cleanResponse.includes('\n')) {
+                        console.log('Detected dict format response');
                         try {
                             const parsed = JSON.parse(cleanResponse);
+                            console.log('Parsed dict:', parsed);
                             cleanResponse = parsed.Response || parsed.response || parsed.message || parsed.text || 
                                            parsed.answer || parsed.output || parsed.Output || cleanResponse;
+                            console.log('Extracted from dict:', cleanResponse);
                         } catch (e) {
                             // If parsing fails, backend should have handled it, but try extraction as fallback
-                            console.warn('Frontend: Still JSON-like, attempting extraction');
+                            console.warn('Frontend: Still JSON-like, attempting extraction', e);
                             const responseMatch = cleanResponse.match(/['"]Response['"]\s*:\s*['"]((?:[^"'\\]|\\.|\\n)*)['"]/i);
                             if (responseMatch && responseMatch[1]) {
                                 cleanResponse = responseMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
+                                console.log('Extracted via regex:', cleanResponse);
                             }
                         }
                     }
@@ -778,17 +797,31 @@
                         cleanResponse = 'I apologize, but I couldn\'t generate a response.';
                     }
                     
-                    console.log('Frontend: Displaying response, length:', cleanResponse.length);
+                    console.log('=== FINAL CLEANED RESPONSE ===');
+                    console.log('Final response:', cleanResponse);
+                    console.log('Final response length:', cleanResponse.length);
+                    console.log('Final response type:', typeof cleanResponse);
+                    console.log('============================');
                     addAIMessage(cleanResponse, false);
                 } else {
+                    console.error('=== CHATBOT ERROR ===');
+                    console.error('Error response:', JSON.stringify(data, null, 2));
+                    console.error('Error message:', data.error || 'Unknown error');
+                    console.error('=====================');
                     addAIMessage('Sorry, I encountered an error: ' + (data.error || 'Unknown error'), false);
                 }
             } else {
                 // General chatbot response format
+                console.log('=== GENERAL CHATBOT RESPONSE ===');
+                console.log('Full response object:', JSON.stringify(data, null, 2));
                 if (data.error) {
+                    console.log('Error detected:', data.error);
                     addAIMessage(`Error: ${data.error}`, false);
                 } else {
                     const responseText = data.response || data.message || JSON.stringify(data);
+                    console.log('General chatbot response text:', responseText);
+                    console.log('Response length:', responseText.length);
+                    console.log('============================');
                     addAIMessage(responseText, false);
                 }
             }
@@ -798,7 +831,11 @@
             if (thinkingMessage && thinkingMessage.parentNode) {
                 thinkingMessage.remove();
             }
-            console.error('Chatbot error:', error);
+            console.error('=== CHATBOT FETCH ERROR ===');
+            console.error('Error object:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            console.error('===========================');
             addAIMessage('Sorry, I encountered an error. Please try again.', false);
         });
     }
