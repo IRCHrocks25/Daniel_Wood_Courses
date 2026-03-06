@@ -335,20 +335,6 @@ class CourseEnrollment(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.course.name}"
-
-
-class FavoriteCourse(models.Model):
-    """Track user's favorite courses"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_courses')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='favorited_by')
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        unique_together = ['user', 'course']
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.user.username} favorited {self.course.name}"
     
     def days_until_exam(self):
         if self.payment_type == 'full':
@@ -380,6 +366,20 @@ class FavoriteCourse(models.Model):
             if self.is_exam_available():
                 return 'eligible'
             return 'not_eligible'
+
+
+class FavoriteCourse(models.Model):
+    """Track user's favorite courses"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_courses')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='favorited_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'course']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} favorited {self.course.name}"
 
 
 class Exam(models.Model):

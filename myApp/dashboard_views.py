@@ -11,6 +11,8 @@ import requests
 import csv
 import io
 import os
+import uuid
+from django.utils import timezone
 try:
     import fitz  # PyMuPDF
     PDF_AVAILABLE = True
@@ -609,9 +611,312 @@ def dashboard_course_lessons(request, course_slug):
     })
 
 
+def create_editorjs_block(block_type, data, block_id=None):
+    """Create an Editor.js block"""
+    return {
+        "id": block_id or str(uuid.uuid4()),
+        "type": block_type,
+        "data": data
+    }
+
+
+def create_editorjs_content(content_sections):
+    """Create Editor.js content blocks from content sections"""
+    blocks = []
+    for section in content_sections:
+        if section.get('type') == 'paragraph':
+            blocks.append(create_editorjs_block('paragraph', {'text': section.get('text', '')}))
+        elif section.get('type') == 'header':
+            blocks.append(create_editorjs_block('header', {
+                'text': section.get('text', ''),
+                'level': section.get('level', 2)
+            }))
+        elif section.get('type') == 'list':
+            blocks.append(create_editorjs_block('list', {
+                'style': section.get('style', 'unordered'),
+                'items': section.get('items', [])
+            }))
+        elif section.get('type') == 'quote':
+            blocks.append(create_editorjs_block('quote', {
+                'text': section.get('text', ''),
+                'caption': section.get('caption', '')
+            }))
+    
+    return {
+        "time": int(timezone.now().timestamp() * 1000),
+        "blocks": blocks,
+        "version": "2.28.2"
+    }
+
+
+def generate_ai_lesson_metadata(client, lesson_title, lesson_description, course_name, course_type):
+    """Generate all AI lesson metadata fields (title, summary, description, outcomes, coach actions)"""
+    prompt = f"""You are an expert course creator. Generate comprehensive lesson metadata for the following lesson:
+
+Course: {course_name}
+Course Type: {course_type}
+Lesson Title: {lesson_title}
+Lesson Description: {lesson_description}
+
+Generate the following fields:
+1. clean_title: A polished, professional version of the lesson title (keep it concise and clear)
+2. short_summary: A 1-2 sentence summary for lesson cards/lists (max 150 characters)
+3. full_description: A detailed 2-3 paragraph description explaining what students will learn (engaging and informative)
+4. outcomes: An array of 3-5 specific learning outcomes (what students will achieve)
+5. coach_actions: An array of 3-4 recommended AI coach actions (e.g., "Summarize in 5 bullets", "Create a 3-step action plan")
+
+Return in JSON format:
+{{
+  "clean_title": "Polished Lesson Title",
+  "short_summary": "Brief summary for lesson cards",
+  "full_description": "Detailed multi-paragraph description of what students will learn in this lesson. Make it engaging and informative.",
+  "outcomes": [
+    "Outcome 1",
+    "Outcome 2",
+    "Outcome 3"
+  ],
+  "coach_actions": [
+    "Action 1",
+    "Action 2",
+    "Action 3"
+  ]
+}}
+
+Only return valid JSON, no additional text."""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are an expert course creator. Always return valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1500
+        )
+        
+        response_text = response.choices[0].message.content.strip()
+        
+        # Clean up response
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        if response_text.endswith('```'):
+            response_text = response_text.rsplit('```', 1)[0].strip()
+        
+        # Parse JSON
+        try:
+            metadata = json.loads(response_text)
+            return {
+                'clean_title': metadata.get('clean_title', lesson_title),
+                'short_summary': metadata.get('short_summary', ''),
+                'full_description': metadata.get('full_description', lesson_description),
+                'outcomes': metadata.get('outcomes', []),
+                'coach_actions': metadata.get('coach_actions', [])
+            }
+        except json.JSONDecodeError:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                metadata = json.loads(json_match.group())
+                return {
+                    'clean_title': metadata.get('clean_title', lesson_title),
+                    'short_summary': metadata.get('short_summary', ''),
+                    'full_description': metadata.get('full_description', lesson_description),
+                    'outcomes': metadata.get('outcomes', []),
+                    'coach_actions': metadata.get('coach_actions', [])
+                }
+            # Fallback to basic values
+            return {
+                'clean_title': lesson_title,
+                'short_summary': f"Learn key concepts from {lesson_title}",
+                'full_description': lesson_description,
+                'outcomes': [],
+                'coach_actions': []
+            }
+    except Exception as e:
+        # Return fallback values if generation fails
+        return {
+            'clean_title': lesson_title,
+            'short_summary': f"Learn key concepts from {lesson_title}",
+            'full_description': lesson_description,
+            'outcomes': [],
+            'coach_actions': []
+        }
+
+
+def generate_ai_lesson_content(client, lesson_title, lesson_description, course_name, course_type):
+    """Generate detailed lesson content using AI (Editor.js blocks)"""
+    prompt = f"""You are an expert course creator. Create comprehensive lesson content for the following lesson:
+
+Course: {course_name}
+Course Type: {course_type}
+Lesson Title: {lesson_title}
+Lesson Description: {lesson_description}
+
+Generate detailed lesson content that includes:
+1. An engaging introduction paragraph
+2. Key learning objectives (as headers)
+3. Main content sections with explanations
+4. Practical examples or tips
+5. A summary or conclusion
+
+Return the content in JSON format with Editor.js compatible blocks:
+{{
+  "content": [
+    {{
+      "type": "header",
+      "text": "Section Title",
+      "level": 2
+    }},
+    {{
+      "type": "paragraph",
+      "text": "Paragraph text here"
+    }},
+    {{
+      "type": "list",
+      "style": "unordered",
+      "items": ["Item 1", "Item 2", "Item 3"]
+    }},
+    {{
+      "type": "quote",
+      "text": "Important quote or tip",
+      "caption": "Optional caption"
+    }}
+  ]
+}}
+
+Make the content educational, practical, and engaging. Include at least 5-8 content blocks.
+Only return valid JSON, no additional text."""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are an expert course creator. Always return valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        response_text = response.choices[0].message.content.strip()
+        
+        # Clean up response
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        if response_text.endswith('```'):
+            response_text = response_text.rsplit('```', 1)[0].strip()
+        
+        # Parse JSON
+        try:
+            content_data = json.loads(response_text)
+            return content_data.get('content', [])
+        except json.JSONDecodeError:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                content_data = json.loads(json_match.group())
+                return content_data.get('content', [])
+            return []
+    except Exception as e:
+        # Return empty content if generation fails
+        return []
+
+
+def generate_ai_course_structure(course_name, description, course_type='sprint', coach_name='Sprint Coach'):
+    """Generate complete course structure (modules and lessons) using AI"""
+    if not OPENAI_AVAILABLE:
+        raise Exception('OpenAI is not available. Please install the openai package.')
+    
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise Exception('OPENAI_API_KEY not found in environment variables.')
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        
+        # Create prompt for AI
+        prompt = f"""You are an expert course creator. Based on the following course information, generate a complete course structure with modules and lessons.
+
+Course Name: {course_name}
+Course Type: {course_type}
+Coach Name: {coach_name}
+Description: {description}
+
+Generate a comprehensive course structure with:
+1. 3-6 modules (logical groupings of lessons)
+2. 3-8 lessons per module (total 12-30 lessons)
+3. Each lesson should have a clear title and description
+4. Lessons should progress logically from basics to advanced concepts
+5. Make it practical and actionable
+
+Return the structure in JSON format:
+{{
+  "modules": [
+    {{
+      "name": "Module Name",
+      "description": "Brief module description",
+      "order": 1,
+      "lessons": [
+        {{
+          "title": "Lesson Title",
+          "description": "Detailed lesson description explaining what students will learn",
+          "order": 1
+        }}
+      ]
+    }}
+  ]
+}}
+
+Only return valid JSON, no additional text."""
+        
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are an expert course creator. Always return valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8,
+            max_tokens=4000
+        )
+        
+        # Parse response
+        response_text = response.choices[0].message.content.strip()
+        
+        # Clean up response (remove markdown code blocks if present)
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        if response_text.endswith('```'):
+            response_text = response_text.rsplit('```', 1)[0].strip()
+        
+        # Parse JSON
+        try:
+            course_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Try to extract JSON from response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                course_data = json.loads(json_match.group())
+            else:
+                raise Exception('Failed to parse AI response as JSON.')
+        
+        return course_data, client
+        
+    except Exception as e:
+        raise Exception(f'AI generation failed: {str(e)}')
+
+
 @staff_member_required
 def dashboard_add_course(request):
-    """Add new course"""
+    """Add new course with optional AI generation"""
     if request.method == 'POST':
         name = request.POST.get('name')
         slug = generate_slug(name)
@@ -620,7 +925,16 @@ def dashboard_add_course(request):
         course_type = request.POST.get('course_type', 'sprint')
         status = request.POST.get('status', 'active')
         coach_name = request.POST.get('coach_name', 'Sprint Coach')
+        use_ai = request.POST.get('use_ai') == 'on'
         
+        # Ensure slug is unique
+        base_slug = slug
+        counter = 1
+        while Course.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        # Create course
         course = Course.objects.create(
             name=name,
             slug=slug,
@@ -630,7 +944,98 @@ def dashboard_add_course(request):
             status=status,
             coach_name=coach_name,
         )
-        messages.success(request, f'Course "{course.name}" has been created successfully.')
+        
+        # Generate course structure with AI if requested
+        if use_ai and description:
+            try:
+                course_structure, ai_client = generate_ai_course_structure(
+                    course_name=name,
+                    description=description,
+                    course_type=course_type,
+                    coach_name=coach_name
+                )
+                
+                # Create modules and lessons
+                modules_created = 0
+                lessons_created = 0
+                
+                for module_data in course_structure.get('modules', []):
+                    module = Module.objects.create(
+                        course=course,
+                        name=module_data.get('name', 'Untitled Module'),
+                        description=module_data.get('description', ''),
+                        order=module_data.get('order', 0)
+                    )
+                    modules_created += 1
+                    
+                    # Create lessons for this module
+                    for lesson_data in module_data.get('lessons', []):
+                        lesson_title = lesson_data.get('title', 'Untitled Lesson')
+                        lesson_description = lesson_data.get('description', '')
+                        lesson_slug = generate_slug(lesson_title)
+                        
+                        # Ensure lesson slug is unique within course
+                        base_lesson_slug = lesson_slug
+                        lesson_counter = 1
+                        while Lesson.objects.filter(course=course, slug=lesson_slug).exists():
+                            lesson_slug = f"{base_lesson_slug}-{lesson_counter}"
+                            lesson_counter += 1
+                        
+                        # Generate all AI lesson metadata (title, summary, description, outcomes, coach actions)
+                        lesson_metadata = generate_ai_lesson_metadata(
+                            client=ai_client,
+                            lesson_title=lesson_title,
+                            lesson_description=lesson_description,
+                            course_name=name,
+                            course_type=course_type
+                        )
+                        
+                        # Generate lesson content blocks using AI (Editor.js format)
+                        lesson_content_sections = generate_ai_lesson_content(
+                            client=ai_client,
+                            lesson_title=lesson_title,
+                            lesson_description=lesson_description,
+                            course_name=name,
+                            course_type=course_type
+                        )
+                        
+                        # Convert content sections to Editor.js format
+                        lesson_content = create_editorjs_content(lesson_content_sections) if lesson_content_sections else {}
+                        
+                        Lesson.objects.create(
+                            course=course,
+                            module=module,
+                            title=lesson_title,
+                            slug=lesson_slug,
+                            description=lesson_description,
+                            order=lesson_data.get('order', 0),
+                            working_title=lesson_title,
+                            # AI-generated metadata fields
+                            ai_clean_title=lesson_metadata.get('clean_title', lesson_title),
+                            ai_short_summary=lesson_metadata.get('short_summary', ''),
+                            ai_full_description=lesson_metadata.get('full_description', lesson_description),
+                            ai_outcomes=lesson_metadata.get('outcomes', []),
+                            ai_coach_actions=lesson_metadata.get('coach_actions', []),
+                            # Editor.js content blocks
+                            content=lesson_content,
+                            ai_generation_status='generated'
+                        )
+                        lessons_created += 1
+                
+                messages.success(
+                    request, 
+                    f'Course "{course.name}" created successfully with AI-generated content! '
+                    f'Created {modules_created} modules and {lessons_created} lessons with full content.'
+                )
+            except Exception as e:
+                messages.warning(
+                    request, 
+                    f'Course "{course.name}" created, but AI generation failed: {str(e)}. '
+                    'You can add modules and lessons manually.'
+                )
+        else:
+            messages.success(request, f'Course "{course.name}" has been created successfully.')
+        
         return redirect('dashboard_courses')
     
     return render(request, 'dashboard/add_course.html')

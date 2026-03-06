@@ -15,11 +15,12 @@
     <!-- Mobile/Tablet: Full width -->
     <div class="w-full pt-6 center-content-rail">
         <div class="w-full center-content-inner">
-        <!-- Video Container -->
+        <!-- Lesson Title -->
+        <h1 class="text-4xl lg:text-5xl font-bold mb-6">{{ lesson.title }}</h1>
+        
+        <!-- Video Container (only show if video exists) -->
+        {% if lesson.google_drive_url or lesson.vimeo_id or lesson.video_url %}
         <div class="mb-6">
-            <!-- Lesson Title -->
-            <h1 class="text-4xl lg:text-5xl font-bold mb-6">{{ lesson.title }}</h1>
-            
             <!-- Video Player -->
             <div class="relative rounded-lg overflow-hidden mb-4 bg-black" style="padding:56.25% 0 0 0;position:relative;">
                 {% if lesson.google_drive_url %}
@@ -45,10 +46,6 @@
                     <script src="https://player.vimeo.com/api/player.js"></script>
                 {% elif lesson.video_url %}
                     <iframe src="{{ lesson.video_url }}" class="w-full aspect-video" frameborder="0" allowfullscreen></iframe>
-                {% else %}
-                    <div class="w-full aspect-video bg-gradient-to-br from-cyan-electric/20 to-purple-accent/20 flex items-center justify-center">
-                        <i class="fas fa-video text-6xl text-cyan-electric/50"></i>
-                    </div>
                 {% endif %}
                 <div class="absolute top-3 left-3">
                     <span class="bg-cyan-electric/90 text-[#0a0e27] text-[10px] uppercase tracking-wider px-2 py-1 rounded font-bold">
@@ -82,6 +79,8 @@
                 </a>
                 {% endif %}
             </div>
+        </div>
+        {% endif %}
             
             <!-- Lesson Content Sections -->
             <div class="space-y-6">
@@ -240,6 +239,17 @@
                         <span>Complete Quiz to Finish Lesson</span>
                     </button>
                     {% else %}
+                    {% if next_lesson and is_last_in_module %}
+                    <!-- Complete lesson and navigate to next module -->
+                    <button 
+                        id="continue-next-module-btn" 
+                        class="w-full py-4 px-6 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold text-lg rounded-xl shadow-lg shadow-cyan-electric/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                    >
+                        <i class="fas fa-arrow-right"></i>
+                        <span>Continue to Next Module</span>
+                    </button>
+                    {% else %}
+                    <!-- Finish lesson (all modules done) -->
                     <button 
                         id="finish-lesson-btn" 
                         class="w-full py-4 px-6 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold text-lg rounded-xl shadow-lg shadow-cyan-electric/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
@@ -247,6 +257,7 @@
                         <i class="fas fa-check-circle"></i>
                         <span>Finish Lesson</span>
                     </button>
+                    {% endif %}
                     {% endif %}
                 {% endif %}
             </div>
@@ -928,6 +939,70 @@
         initChatbot();
     }
     
+    // Continue to Next Module Button Handler
+    const continueNextModuleBtn = document.getElementById('continue-next-module-btn');
+    if (continueNextModuleBtn) {
+        continueNextModuleBtn.addEventListener('click', function() {
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            const quizPassed = {{ quiz_passed|yesno:"true,false" }};
+            const hasQuiz = {{ lesson_quiz|yesno:"true,false" }};
+
+            // Check if quiz is required and not passed
+            if (hasQuiz && !quizPassed) {
+                showLessonErrorModal('You must pass the lesson quiz before continuing to the next module. Please take the quiz first.');
+                return;
+            }
+
+            // Helper to complete lesson and navigate to next module
+            function completeAndNavigate() {
+                // Disable button and show loading state
+                btn.disabled = true;
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0a0e27]"></div><span>Completing lesson...</span>';
+                
+                fetch(`/api/lessons/${lessonId}/complete/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Navigate to next module after completing lesson
+                        if (nextLessonUrl) {
+                            window.location.href = nextLessonUrl;
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        // Show error
+                        btn.disabled = false;
+                        btn.innerHTML = originalHTML;
+                        const errorMsg = data.error || 'Failed to complete lesson';
+                        if (data.quiz_required) {
+                            showLessonErrorModal(errorMsg + '\n\nClick the quiz button above to take the required quiz.');
+                        } else {
+                            showLessonErrorModal(errorMsg);
+                        }
+                    }
+                })
+                .catch(error => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                    showLessonErrorModal('Error: ' + error.message);
+                });
+            }
+
+            // Force-save 100% progress right before completing
+            updateVideoProgress(100, videoDuration || 0)
+                .finally(() => {
+                    completeAndNavigate();
+                });
+        });
+    }
+    
     // Finish Lesson Button Handler
     const finishLessonBtn = document.getElementById('finish-lesson-btn');
     if (finishLessonBtn && !finishLessonBtn.disabled) {
@@ -960,21 +1035,46 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // If there's a next lesson, go there automatically.
-                        if (nextLessonUrl) {
-                            // Keep preloader visible during redirect
-                            setTimeout(() => {
-                                window.location.href = nextLessonUrl;
-                            }, 500);
-                        } else {
-                            // No next lesson: hide preloader and show completion state
-                            hideStudentPreloader();
-                            btn.outerHTML = `
+                        // Show completion state with next lesson button if available
+                        hideStudentPreloader();
+                        let completionHTML = `
+                            <div class="space-y-4">
                                 <div class="flex items-center justify-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
                                     <i class="fas fa-check-circle text-green-400 text-xl"></i>
                                     <span class="text-green-400 font-semibold">Lesson Completed!</span>
                                 </div>
+                        `;
+                        
+                        // Add next lesson button if available
+                        if (nextLessonUrl) {
+                            completionHTML += `
+                                <a 
+                                    href="${nextLessonUrl}"
+                                    class="flex items-center justify-center gap-3 w-full px-6 py-3 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                                >
+                                    <span>Continue to Next Lesson</span>
+                                    <i class="fas fa-arrow-right"></i>
+                                </a>
                             `;
+                        }
+                        
+                        completionHTML += `</div>`;
+                        const btnParent = btn.parentElement;
+                        btn.outerHTML = completionHTML;
+                        
+                        // Scroll to show the completion message and button
+                        const completionDiv = btnParent.querySelector('.space-y-4');
+                        if (completionDiv) {
+                            setTimeout(() => {
+                                completionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                        }
+                        
+                        // Reload page after a short delay to update all UI elements (only if no next lesson)
+                        if (!nextLessonUrl) {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
                         }
                     } else {
                         // Show error

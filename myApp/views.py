@@ -197,23 +197,77 @@ def lesson_detail(request, course_slug, lesson_slug):
         first_lesson = all_lessons.first()
         accessible_lessons.append(first_lesson.id)
         
-        # For each subsequent lesson, check if all previous lessons are completed
+        # Get all modules ordered
+        all_modules = course.modules.all().order_by('order', 'id')
+        
+        # For each subsequent lesson, check accessibility
         for current_lesson in all_lessons[1:]:
-            # Get all previous lessons (with lower order or same order but lower id)
-            previous_lessons = all_lessons.filter(
-                models.Q(order__lt=current_lesson.order) |
-                models.Q(order=current_lesson.order, id__lt=current_lesson.id)
-            )
+            # Check if this is the first lesson of a module
+            is_first_in_module = False
+            if current_lesson.module:
+                module_lessons = current_lesson.module.lessons.filter(course=course).order_by('order', 'id')
+                if module_lessons.exists():
+                    first_lesson_in_module = module_lessons.first()
+                    if first_lesson_in_module.id == current_lesson.id:
+                        is_first_in_module = True
+                        
+                        # Check if previous module's last lesson is completed
+                        current_module_index = None
+                        for idx, module in enumerate(all_modules):
+                            if module.id == current_lesson.module.id:
+                                current_module_index = idx
+                                break
+                        
+                        if current_module_index and current_module_index > 0:
+                            # Get previous module
+                            prev_module = all_modules[current_module_index - 1]
+                            prev_module_lessons = prev_module.lessons.filter(course=course).order_by('order', 'id')
+                            if prev_module_lessons.exists():
+                                # Check if ANY lesson in the previous module is completed
+                                # This allows access to next module once you've started the previous module
+                                prev_module_has_completed = any(
+                                    lesson.id in completed_lessons 
+                                    for lesson in prev_module_lessons
+                                )
+                                if prev_module_has_completed:
+                                    accessible_lessons.append(current_lesson.id)
+                                    continue
             
-            # Check if all previous lessons are completed
-            all_previous_completed = True
-            for prev_lesson in previous_lessons:
-                if prev_lesson.id not in completed_lessons:
-                    all_previous_completed = False
-                    break
-            
-            if all_previous_completed:
-                accessible_lessons.append(current_lesson.id)
+            # For non-first lessons in modules, check if the IMMEDIATELY PREVIOUS lesson in the SAME module is completed
+            # This allows sequential unlocking within a module
+            if not is_first_in_module:
+                if current_lesson.module:
+                    current_module_lessons = current_lesson.module.lessons.filter(course=course).order_by('order', 'id')
+                    current_module_lessons_list = list(current_module_lessons)
+                    
+                    # Find current lesson's position in module
+                    current_lesson_index = None
+                    for idx, l in enumerate(current_module_lessons_list):
+                        if l.id == current_lesson.id:
+                            current_lesson_index = idx
+                            break
+                    
+                    if current_lesson_index is not None and current_lesson_index > 0:
+                        # Check if the immediately previous lesson in this module is completed
+                        previous_lesson_in_module = current_module_lessons_list[current_lesson_index - 1]
+                        if previous_lesson_in_module.id in completed_lessons:
+                            accessible_lessons.append(current_lesson.id)
+                            continue
+                
+                # Fallback: check if all previous lessons overall are completed (for lessons without modules)
+                previous_lessons = all_lessons.filter(
+                    models.Q(order__lt=current_lesson.order) |
+                    models.Q(order=current_lesson.order, id__lt=current_lesson.id)
+                )
+                
+                all_previous_completed = True
+                for prev_lesson in previous_lessons:
+                    if prev_lesson.id not in completed_lessons:
+                        all_previous_completed = False
+                        break
+                
+                if all_previous_completed:
+                    accessible_lessons.append(current_lesson.id)
         
         # Check if current lesson is locked
         lesson_locked = lesson.id not in accessible_lessons
@@ -233,14 +287,57 @@ def lesson_detail(request, course_slug, lesson_slug):
             else:
                 messages.info(request, 'All lessons completed!')
     
-    # Work out next lesson (for auto-advance after completion)
+    # Work out next lesson (prioritize next module's first lesson)
     next_lesson = None
+    has_more_modules = False
+    
     if all_lessons.exists():
-        lessons_list = list(all_lessons)
-        for idx, l in enumerate(lessons_list):
-            if l.id == lesson.id and idx + 1 < len(lessons_list):
-                next_lesson = lessons_list[idx + 1]
-                break
+        all_modules = course.modules.all().order_by('order', 'id')
+        
+        # Check if current lesson has a module
+        if lesson.module and all_modules.exists():
+            # Get all lessons in current module, ordered
+            current_module_lessons = lesson.module.lessons.filter(course=course).order_by('order', 'id')
+            current_module_lessons_list = list(current_module_lessons)
+            
+            # Check if this is the last lesson in the current module
+            is_last_in_module = False
+            if current_module_lessons_list:
+                last_lesson_in_module = current_module_lessons_list[-1]
+                if last_lesson_in_module.id == lesson.id:
+                    is_last_in_module = True
+            
+            if is_last_in_module:
+                # Find next module's first lesson (always go to next module when on last lesson)
+                current_module_found = False
+                for module in all_modules:
+                    if current_module_found:
+                        # This is the next module - get its first lesson
+                        next_module_lessons = module.lessons.filter(course=course).order_by('order', 'id')
+                        if next_module_lessons.exists():
+                            next_lesson = next_module_lessons.first()
+                            has_more_modules = True  # Always true when there's a next module
+                            break
+                    if module.id == lesson.module.id:
+                        current_module_found = True
+            
+            # If not last in module, get next lesson in same module
+            if not is_last_in_module and not next_lesson:
+                for idx, l in enumerate(current_module_lessons_list):
+                    if l.id == lesson.id and idx + 1 < len(current_module_lessons_list):
+                        next_lesson = current_module_lessons_list[idx + 1]
+                        break
+        
+        # Fallback: if no module or no next lesson found, use sequential navigation
+        if not next_lesson:
+            lessons_list = list(all_lessons)
+            for idx, l in enumerate(lessons_list):
+                if l.id == lesson.id and idx + 1 < len(lessons_list):
+                    next_lesson = lessons_list[idx + 1]
+                    # Check if next lesson is in a different module
+                    if lesson.module and next_lesson.module and lesson.module.id != next_lesson.module.id:
+                        has_more_modules = True
+                    break
 
     # Get quiz and quiz attempts for this user
     lesson_quiz = getattr(lesson, 'quiz', None)
@@ -259,6 +356,15 @@ def lesson_detail(request, course_slug, lesson_slug):
             passed=True
         ).exists()
 
+    # Check if current lesson is the last in its module
+    is_last_in_module = False
+    if lesson.module:
+        current_module_lessons = lesson.module.lessons.filter(course=course).order_by('order', 'id')
+        if current_module_lessons.exists():
+            last_lesson_in_module = current_module_lessons.last()
+            if last_lesson_in_module.id == lesson.id:
+                is_last_in_module = True
+    
     return render(request, 'lesson.html', {
         'course': course,
         'lesson': lesson,
@@ -271,6 +377,8 @@ def lesson_detail(request, course_slug, lesson_slug):
         'last_watched_timestamp': last_watched_timestamp,
         'lesson_status': lesson_status,
         'next_lesson': next_lesson,
+        'has_more_modules': has_more_modules,
+        'is_last_in_module': is_last_in_module,
         'lesson_quiz': lesson_quiz,
         'quiz_attempts': quiz_attempts,
         'latest_quiz_attempt': latest_quiz_attempt,
@@ -294,15 +402,62 @@ def lesson_quiz_view(request, course_slug, lesson_slug):
     questions = quiz.questions.all()
     result = None
     
-    # Get next lesson for redirect after passing
+    # Get next lesson for redirect after passing (use same logic as lesson_detail)
     all_lessons = course.lessons.order_by('order', 'id')
     next_lesson = None
+    
+    # Get user's completed lessons to check accessibility
+    completed_lessons = list(
+        UserProgress.objects.filter(
+            user=request.user,
+            lesson__course=course,
+            completed=True
+        ).values_list('lesson_id', flat=True)
+    )
+    
     if all_lessons.exists():
-        lessons_list = list(all_lessons)
-        for idx, l in enumerate(lessons_list):
-            if l.id == lesson.id and idx + 1 < len(lessons_list):
-                next_lesson = lessons_list[idx + 1]
-                break
+        all_modules = course.modules.all().order_by('order', 'id')
+        
+        # Check if current lesson has a module
+        if lesson.module and all_modules.exists():
+            # Get all lessons in current module, ordered
+            current_module_lessons = lesson.module.lessons.filter(course=course).order_by('order', 'id')
+            current_module_lessons_list = list(current_module_lessons)
+            
+            # Check if this is the last lesson in the current module
+            is_last_in_module = False
+            if current_module_lessons_list:
+                last_lesson_in_module = current_module_lessons_list[-1]
+                if last_lesson_in_module.id == lesson.id:
+                    is_last_in_module = True
+            
+            if is_last_in_module:
+                # Find next module's first lesson
+                current_module_found = False
+                for module in all_modules:
+                    if current_module_found:
+                        # This is the next module - get its first lesson
+                        next_module_lessons = module.lessons.filter(course=course).order_by('order', 'id')
+                        if next_module_lessons.exists():
+                            next_lesson = next_module_lessons.first()
+                            break
+                    if module.id == lesson.module.id:
+                        current_module_found = True
+            
+            # If not last in module, get next lesson in same module
+            if not is_last_in_module and not next_lesson:
+                for idx, l in enumerate(current_module_lessons_list):
+                    if l.id == lesson.id and idx + 1 < len(current_module_lessons_list):
+                        next_lesson = current_module_lessons_list[idx + 1]
+                        break
+        
+        # Fallback: if no module or no next lesson found, use sequential navigation
+        if not next_lesson:
+            lessons_list = list(all_lessons)
+            for idx, l in enumerate(lessons_list):
+                if l.id == lesson.id and idx + 1 < len(lessons_list):
+                    next_lesson = lessons_list[idx + 1]
+                    break
 
     if request.method == 'POST':
         total = questions.count()
@@ -321,6 +476,17 @@ def lesson_quiz_view(request, course_slug, lesson_slug):
             score=score,
             passed=passed,
         )
+        
+        # If quiz is passed and lesson is required, auto-complete the lesson
+        if passed and quiz.is_required:
+            UserProgress.objects.update_or_create(
+                user=request.user,
+                lesson=lesson,
+                defaults={
+                    'completed': True,
+                    'status': 'completed',
+                }
+            )
 
         result = {
             'score': round(score, 1),

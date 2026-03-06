@@ -72,6 +72,7 @@
                             href="{% url 'lesson_detail' course.slug next_lesson.slug %}" 
                             id="next-lesson-btn"
                             class="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all transform hover:scale-105 shadow-lg"
+                            onclick="this.classList.add('opacity-50', 'cursor-wait'); this.querySelector('span').textContent = 'Loading...';"
                         >
                             <span>Continue to Next Lesson</span>
                             <i class="fas fa-arrow-right"></i>
@@ -227,15 +228,7 @@
         }, 3000);
     })();
     
-    // Auto-redirect to next lesson after 3 seconds if passed
-    {% if next_lesson %}
-    setTimeout(() => {
-        const nextBtn = document.getElementById('next-lesson-btn');
-        if (nextBtn) {
-            window.location.href = nextBtn.href;
-        }
-    }, 3000);
-    {% endif %}
+    // Removed auto-redirect - let user click manually to avoid slow loading issues
 </script>
 {% endif %}
 

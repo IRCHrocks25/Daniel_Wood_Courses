@@ -13,7 +13,7 @@
 
     <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-8">
         <h2 class="text-2xl font-bold mb-6">Course Information</h2>
-        <form method="POST">
+        <form method="POST" id="create-course-form">
             {% csrf_token %}
             <div class="space-y-6">
                 <div>
@@ -29,6 +29,22 @@
                 <div>
                     <label class="block text-sm font-semibold mb-2">Full Description *</label>
                     <textarea name="description" rows="6" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-electric/50 resize-none" placeholder="Detailed course description"></textarea>
+                    <p class="text-xs text-gray-400 mt-1">Provide a detailed description of what the course covers. The more detail you provide, the better the AI-generated content will be.</p>
+                </div>
+                
+                <div class="bg-gradient-to-r from-cyan-electric/10 to-purple-500/10 border border-cyan-electric/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" name="use_ai" id="use_ai" class="mt-1 w-5 h-5 text-cyan-electric bg-[#0a0e27]/40 border-cyan-electric/30 rounded focus:ring-cyan-electric focus:ring-2">
+                        <div class="flex-1">
+                            <label for="use_ai" class="block text-sm font-semibold mb-1 cursor-pointer">
+                                <i class="fas fa-robot mr-2 text-cyan-electric"></i>
+                                Generate Course Structure with AI
+                            </label>
+                            <p class="text-xs text-gray-400">
+                                Automatically generate modules and lessons based on your description. This will create a complete course structure with 3-6 modules and 12-30 lessons that you can edit afterward.
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
@@ -58,8 +74,11 @@
                 </div>
                 
                 <div class="flex gap-4 pt-4">
-                    <button type="submit" class="flex-1 px-6 py-3 bg-cyan-electric text-[#0a0e27] rounded-full font-bold hover:bg-cyan-electric/90 transition-all">
-                        Create Course
+                    <button type="submit" id="submit-btn" class="flex-1 px-6 py-3 bg-cyan-electric text-[#0a0e27] rounded-full font-bold hover:bg-cyan-electric/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span id="submit-text">Create Course</span>
+                        <span id="submit-loading" class="hidden">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Creating...
+                        </span>
                     </button>
                     <a href="{% url 'dashboard_courses' %}" class="px-6 py-3 border border-cyan-electric/30 rounded-full font-medium hover:bg-cyan-electric/10 transition-all text-center">
                         Cancel
@@ -69,5 +88,77 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('create-course-form');
+    const aiCheckbox = document.getElementById('use_ai');
+    const preloader = document.getElementById('universal-preloader');
+    const preloaderText = document.getElementById('preloader-text');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitLoading = document.getElementById('submit-loading');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const useAI = aiCheckbox && aiCheckbox.checked;
+            
+            // Disable submit button and show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+            if (submitText) {
+                submitText.classList.add('hidden');
+            }
+            if (submitLoading) {
+                submitLoading.classList.remove('hidden');
+            }
+            
+            if (useAI) {
+                // Show AI generation preloader with progress messages
+                if (preloader && preloaderText) {
+                    preloaderText.textContent = 'Creating Course...';
+                    preloader.classList.remove('hidden');
+                    preloader.classList.add('flex');
+                    document.body.style.overflow = 'hidden';
+                    
+                    // Update message after a short delay to show AI is working
+                    setTimeout(function() {
+                        if (preloaderText) {
+                            preloaderText.textContent = 'Generating Course Structure with AI...';
+                        }
+                    }, 1000);
+                    
+                    setTimeout(function() {
+                        if (preloaderText) {
+                            preloaderText.textContent = 'Creating Modules and Lessons...';
+                        }
+                    }, 3000);
+                    
+                    setTimeout(function() {
+                        if (preloaderText) {
+                            preloaderText.textContent = 'Generating Lesson Content...';
+                        }
+                    }, 6000);
+                    
+                    setTimeout(function() {
+                        if (preloaderText) {
+                            preloaderText.textContent = 'Almost done! Finalizing course structure...';
+                        }
+                    }, 10000);
+                }
+            } else {
+                // Regular course creation
+                if (preloader && preloaderText) {
+                    preloaderText.textContent = 'Creating Course...';
+                    preloader.classList.remove('hidden');
+                    preloader.classList.add('flex');
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
 
